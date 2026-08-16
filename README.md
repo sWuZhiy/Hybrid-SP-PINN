@@ -37,6 +37,7 @@ python tests/test_device.py
 python tests/test_poisson_fdm.py
 python tests/test_schrodinger_fdm.py
 python tests/test_quantum_density.py
+python tests/test_fermi_level.py
 ```
 
 ## 物理模型
@@ -52,7 +53,7 @@ python tests/test_quantum_density.py
 - [x] Stage 3：Poisson-FDM 独立验证
 - [x] Stage 4：Schrödinger-FDM 独立验证
 - [x] Stage 5：量子电子密度模块
-- [ ] Stage 6：费米能级 / 电中性
+- [x] Stage 6：费米能级 / 电中性
 - [ ] Stage 7：完整 FDM SP baseline
 - [ ] Stage 8：Poisson-PINN 独立求解器
 - [ ] Stage 9：Hybrid SP-PINN
