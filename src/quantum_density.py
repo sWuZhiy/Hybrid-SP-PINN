@@ -80,7 +80,8 @@ def quantum_density(energies, psi, EF, T, m_par, g_v, g_s=2):
         raise ValueError("psi 形状必须为 (n_grid, num_states)")
 
     Ns_i = sheet_density(EF, energies, T, m_par, g_v, g_s)
-    n = (psi ** 2) @ Ns_i          # 形状 (n_grid, num_states) @ (num_states,) -> (n_grid,)
+    # |ψ|² 加权；用 np.abs 保证复 ψ 下也取模方（当前 ψ 为实，二者等价）
+    n = (np.abs(psi) ** 2) @ Ns_i  # 形状 (n_grid, num_states) @ (num_states,) -> (n_grid,)
     Ns_total = float(np.sum(Ns_i))
     return n, Ns_i, Ns_total
 
@@ -103,6 +104,8 @@ def quantum_density_multi(ladders, EF, T):
         Ns_per_ladder: 各组子带面密度 [1/m^2] 的列表。
         Ns_total: 总面密度 [1/m^2]。
     """
+    if not ladders:
+        raise ValueError("ladders 不能为空")
     n_total = None
     Ns_per_ladder = []
     Ns_total = 0.0

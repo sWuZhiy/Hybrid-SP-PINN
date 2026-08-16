@@ -225,6 +225,8 @@ def test_input_validation():
         quantum_density(E, psi[:, :1], 0.0, 300.0, M_T, 2)  # psi 列数不匹配
     with _expect_raises(ValueError):
         quantum_density(np.zeros((2, 2)), psi, 0.0, 300.0, M_T, 2)  # energies 2D
+    with _expect_raises(ValueError):
+        quantum_density_multi([], 0.0, 300.0)                        # 空 ladders
 
 
 if __name__ == "__main__":
