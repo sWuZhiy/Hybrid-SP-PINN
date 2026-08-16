@@ -1,0 +1,9 @@
+# Hybrid SP-PINN 一维平衡态 MOS 电容项目依赖
+# Python >= 3.10（本项目开发环境 3.13）
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.7
+pandas>=2.0
+pyyaml>=6.0
+torch>=2.3
+pytest>=8.0

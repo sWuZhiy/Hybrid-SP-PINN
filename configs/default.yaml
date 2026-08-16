@@ -1,0 +1,42 @@
+# Hybrid SP-PINN 默认参数配置
+# 所有物理参数集中在此文件，业务代码禁止散落魔法数字。
+# 数值为项目初始值，最终须以可信文献/QTCAD 参考实现交叉核对。
+
+geometry:
+  t_ox_nm: 2.0          # 氧化层厚度 [nm]
+  L_si_nm: 100.0        # 硅区长度 [nm]
+  n_grid: 1000          # 网格点数
+
+material:
+  eps_si_r: 11.7        # 硅相对介电常数
+  eps_ox_r: 3.9         # 二氧化硅相对介电常数
+  m_l: 0.91             # 硅纵向有效质量 [m0]
+  m_t: 0.19             # 硅横向有效质量 [m0]
+  m_ox: 0.5             # 二氧化硅有效质量 [m0]（仅显式氧化层波函数时用）
+  delta_Ec_eV: 3.1      # Si/SiO2 导带带阶 [eV]，须最终确认
+  # 能谷简并（(100) 硅表面，6 个 Delta 能谷按 z 向有效质量分裂为两组）
+  valley:
+    g_s: 2              # 自旋简并度
+    g_v: [2, 4]         # 二重能谷 / 四重能谷简并度
+    m_z: [0.91, 0.19]   # 各能谷组 z 向有效质量 [m0]
+    m_par: [0.19, 0.42] # 各能谷组平面 DOS 有效质量 [m0]（(ml*mt)^0.5 四舍五入）
+
+substrate:
+  type: p               # 掺杂类型
+  NA_cm3: 1.0e17        # 掺杂浓度 [cm^-3]
+
+thermal:
+  T_K: 300.0            # 温度 [K]
+
+solver:
+  num_states: 15        # 束缚态数目（两组能谷合计）
+  mixing_alpha: 0.1     # 简单混合因子
+  tol_V: 1.0e-6         # 电势收敛阈值 [V]
+  max_iter: 200         # 最大自洽迭代轮数
+
+pinn:
+  hidden_layers: 4      # 隐藏层数
+  hidden_width: 64      # 隐藏层宽度
+  activation: tanh      # 激活函数
+  optimizer: Adam       # 优化器
+  lr: 1.0e-3            # 初始学习率
