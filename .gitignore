@@ -12,6 +12,11 @@ data/
 *.png
 *.pdf
 
+# 论文插图：例外纳入版本控制（正式论文图，随仓库保存，不随 *.png/*.pdf 全局忽略）
+!paper/figures/
+!paper/figures/*.png
+!paper/figures/*.pdf
+
 # OS
 .DS_Store
 Thumbs.db
