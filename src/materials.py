@@ -24,7 +24,9 @@ class MaterialParams:
     m_t: float             # 硅横向有效质量 [kg]
     m_ox: float            # 氧化层有效质量 [kg]
     delta_Ec: float        # Si/SiO2 导带带阶 [J]
+    E_g: float             # 硅带隙 [J]（能量基准：E_i = Ec - E_g/2）
     NA: float              # 受主掺杂浓度 [1/m^3]
+    n_i: float             # 本征载流子浓度 [1/m^3]（用于经典空穴浓度 p(z)）
     g_s: float             # 自旋简并度
     g_v: List[int]         # 能谷简并度 [二重, 四重]
     m_z: List[float]       # 各能谷组 z 向（限域）有效质量 [kg]
@@ -58,7 +60,9 @@ def material_params_from_config(config):
         m_t=m_t,
         m_ox=m['m_ox'] * constants.m0,
         delta_Ec=units.ev_to_joule(m['delta_Ec_eV']),
+        E_g=units.ev_to_joule(m['E_g_eV']),
         NA=units.cm3_to_m3(float(s['NA_cm3'])),
+        n_i=units.cm3_to_m3(float(s['n_i_cm3'])),
         g_s=g_s,
         g_v=g_v,
         m_z=m_z,

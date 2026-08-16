@@ -14,6 +14,7 @@ material:
   m_t: 0.19             # 硅横向有效质量 [m0]
   m_ox: 0.5             # 二氧化硅有效质量 [m0]（仅显式氧化层波函数时用）
   delta_Ec_eV: 3.1      # Si/SiO2 导带带阶 [eV]，须最终确认
+  E_g_eV: 1.12          # 硅带隙 [eV]（能量基准：E_i = Ec - E_g/2）
   # 能谷简并（(100) 硅表面，6 个 Delta 能谷按 z 向有效质量分裂为两组）
   valley:
     g_s: 2              # 自旋简并度
@@ -31,7 +32,7 @@ thermal:
 
 solver:
   num_states: 15        # 束缚态数目（两组能谷合计）
-  mixing_alpha: 0.1     # 简单混合因子
+  mixing_alpha: 0.5     # Anderson 混合的保守因子（外层固定点外推，0 < alpha <= 1）
   tol_V: 1.0e-6         # 电势收敛阈值 [V]
   max_iter: 200         # 最大自洽迭代轮数
 
