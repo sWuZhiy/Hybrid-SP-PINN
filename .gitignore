@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# 生成结果、数据与图（均可由脚本复现，不入库）
+results/
+data/
+*.png
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db

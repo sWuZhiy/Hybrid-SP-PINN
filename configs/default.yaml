@@ -17,13 +17,13 @@ material:
   # 能谷简并（(100) 硅表面，6 个 Delta 能谷按 z 向有效质量分裂为两组）
   valley:
     g_s: 2              # 自旋简并度
-    g_v: [2, 4]         # 二重能谷 / 四重能谷简并度
-    m_z: [0.91, 0.19]   # 各能谷组 z 向有效质量 [m0]
-    m_par: [0.19, 0.42] # 各能谷组平面 DOS 有效质量 [m0]（(ml*mt)^0.5 四舍五入）
+    g_v: [2, 4]         # 能谷简并度（二重 / 四重）
+    # 注：各能谷组的 z 向限域质量 m_z 与平面 DOS 质量 m_par 由 m_l/m_t 推导：
+    #     m_z = [m_l, m_t]，m_par = [m_t, sqrt(m_l*m_t)]，见 materials.py
 
 substrate:
   type: p               # 掺杂类型
-  NA_cm3: 1.0e17        # 掺杂浓度 [cm^-3]
+  NA_cm3: 1.0e+17       # 掺杂浓度 [cm^-3]（科学计数需带符号，否则 YAML 解析为字符串）
 
 thermal:
   T_K: 300.0            # 温度 [K]
