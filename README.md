@@ -34,6 +34,7 @@ pip install -r requirements.txt
 ```bash
 python tests/test_units.py
 python tests/test_device.py
+python tests/test_poisson_fdm.py
 ```
 
 ## 物理模型
@@ -46,7 +47,7 @@ python tests/test_device.py
 - [x] Stage 0：环境初始化
 - [x] Stage 1：物理常数与单位
 - [x] Stage 2：几何与材料分区
-- [ ] Stage 3：Poisson-FDM 独立验证
+- [x] Stage 3：Poisson-FDM 独立验证
 - [ ] Stage 4：Schrödinger-FDM 独立验证
 - [ ] Stage 5：量子电子密度模块
 - [ ] Stage 6：费米能级 / 电中性

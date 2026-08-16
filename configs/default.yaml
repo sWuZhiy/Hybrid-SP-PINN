@@ -24,6 +24,7 @@ material:
 substrate:
   type: p               # 掺杂类型
   NA_cm3: 1.0e+17       # 掺杂浓度 [cm^-3]（科学计数需带符号，否则 YAML 解析为字符串）
+  n_i_cm3: 1.5e10       # 本征载流子浓度 [cm^-3]（Si, 300 K），用于经典空穴浓度 p(z)
 
 thermal:
   T_K: 300.0            # 温度 [K]
