@@ -323,3 +323,14 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 6. **全局随机种子重置副作用**：每次构造 solver 都 `torch.manual_seed(seed)` 重置全局随机状态——未来实验里 PINN 训练与其他随机过程交错时会互相干扰。可改为局部 generator。
 7. **效率叙事**：单点 Hybrid 训练 27–45 s vs FDM ~ms，处于劣势；效率优势只在 Stage 12 参数化推理。论文 §1.1 的定位（参数化扫描场景）方向正确，表述须守住。
 8. **Stage 12 参数化**：Vg 并入网络输入后，Robin 损失显式依赖 Vg，需把 Vg 按批并入 `_loss`——架构兼容，非障碍。
+
+---
+
+## 关键文献（详见 [references.md](references.md) §E 论文引用地图）
+
+- **PINN 基础**：Raissi et al. 2019（残差损失）；Lagaris et al. 1998（硬约束试函数先驱）；Sirignano & Spiliopoulos 2018（DGM）；Karniadakis et al. 2021（综述）。
+- **训练策略**：Bengio et al. 2009（课程学习——两阶段课程的依据）；Kingma & Ba 2015（Adam）。
+- **界面处理**：Jagtap & Karniadakis 2020（XPINN 区域分解+界面通量连续）；Sarma et al. 2024（I-PINN 界面问题框架）——与「解析氧化层 + Robin」方案直接对应；FDM 侧对照 Patankar 1980（调和平均）。
+- **半导体 PINN 近作**：Riganti et al. 2025（DDNet）；Cai et al. 2024（DAC 多阶微分网络）；Radu & Duque 2022（量子阱薛定谔）；Singhal & Agarwal 2024（EDTM 定态薛定谔）。
+- **对照论证**：Grossmann et al. 2024（PINN vs FEM，Poisson 等方程）；Savović et al. 2023（FDM vs PINN 实证）。
+- **物理侧**：BenDaniel & Duke 1966（BD 条件——Robin 所保证的 D 连续是其静电类比）；Patankar 1980（与 Robin 的对照见 §8.3）。

@@ -28,3 +28,5 @@
 | 动能次对角 `-a_{i+1/2}/dz²` | `offdiag = -kp[:-1]` |
 | 最低 N 个本征对 | `eigh_tridiagonal(diag, offdiag, select='i', select_range=(0,k-1))` |
 | 归一化 `∫ψ²dz=1`、符号固定 | `psi = psi/sqrt(trapezoid(psi²,z))` + 最大幅值取正 |
+
+**关键文献**：[references.md](references.md) §B/C（BenDaniel & Duke 1966 界面衔接条件原始出处；Luttinger & Kohn 1955 有效质量方程；LAPACK 1990 三对角本征求解底层）。

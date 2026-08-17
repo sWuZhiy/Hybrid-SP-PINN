@@ -26,3 +26,5 @@
 | 真空介电常数 | `constants.eps0` | 8.8542e-12 F/m |
 
 单位换算：`units.EV_TO_J = q`（1 eV = q J 严格成立）、`NM_TO_M = 1e-9`、`CM3_TO_M3 = 1e6`。
+
+**关键文献**：[references.md](references.md) §B（Ashcroft & Mermin 费米统计与 kT；Sze & Ng 材料参数附录）。

@@ -30,3 +30,5 @@
 | 导带带阶 `ΔEc(z)=ΔEc·1_{z<t_ox}`（氧化层势垒） | `delta_ec_profile` = `np.where(is_si, 0.0, p.delta_Ec)` |
 | 掺杂剖面 `NA(z)=NA·1_{z≥t_ox}`（完全电离） | `doping_profile` = `np.where(is_si, p.NA, 0.0)` |
 | (100) 能谷分裂 `m_z=[m_l,m_t]`、`m_par=[m_t,√(m_l·m_t)]`、`g_v=[2,4]` | `material_params_from_config` |
+
+**关键文献**：[references.md](references.md) §B（Luttinger & Kohn 1955 有效质量理论；Fang & Howard 1966 六谷二重/四重分裂；AFS 1982 参数 0.916/0.190——本项目 0.91/0.19 为其舍入值，论文勿与 Sze 附录 0.98/0.19 回旋共振传统混用）。

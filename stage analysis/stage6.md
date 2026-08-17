@@ -26,3 +26,5 @@
 | 电中性残差 `Q(EF)=q·(p-n-NA)`（随 EF 单调递减） | `bulk_charge_density` |
 | 解析解 `EF=-kT·asinh(NA/2n_i)` | `analytic_fermi_level` |
 | 数值求根（Brent，`xtol=1e-30`） | `find_fermi_level`（`brentq(Q, lo, hi, xtol=1e-30)`） |
+
+**关键文献**：[references.md](references.md) §B（Sze & Ng 质量作用定律 `np=n_i²` 与电中性；Ashcroft & Mermin 非简并 Boltzmann 近似判据）。

@@ -28,3 +28,5 @@
 | 控制体宽度 `cvw_i=(z_{i+1}-z_{i-1})/2` | `cvw = 0.5*(z[i+1]-z[i-1])` |
 | 三对角主/次对角元 | `diag[i]=-(km+kp)`、`lower=km`、`upper=kp` |
 | Dirichlet `φ(0)=Vg, φ(L)=0` | `b[0]=phi_left`、`b[-1]=phi_right` |
+
+**关键文献**：[references.md](references.md) §C（Patankar 1980 界面系数调和平均的标准做法；Selberherr 1984 半导体器件离散化；LeVeque 2002 有限体积法）。

@@ -32,3 +32,5 @@
 | 量子电子 `n=Σ Ns_i|ψ_i|²`（复用 Stage 5） | `compute_carriers → quantum_density_multi` |
 | 非线性 Poisson（Newton 线性化 `dp/dφ=−q p/kT`） | `solve_poisson_nonlinear`，Jacobian `diag[i]=−(km+kp)−q²p·cvw/kT` |
 | 固定点 `φ=G(φ)` + Anderson 加速 | `solve_sp`：`r=φ_newton−φ`，`np.linalg.lstsq` 最小二乘外推 |
+
+**关键文献**：[references.md](references.md) §C（Gummel 1964 自洽迭代开山；Anderson 1965 + Walker & Ni 2011 固定点加速与收敛理论；Kelley 2003 Newton 内层；Selberherr 1984 器件模拟教科书）+ §B（Stern & Howard 1967 反型层自洽开山）。

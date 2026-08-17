@@ -27,3 +27,5 @@
 | 子带面密度 `Ns_i = g_s·g_v·DOS·kT·log_occ` | `g_s*g_v*dos_per_spin*kT*log_occ` |
 | 体密度 `n(z) = Σ_i Ns_i·|ψ_i(z)|²` | `n = (np.abs(psi)**2) @ Ns_i` |
 | 多能谷组叠加 | `quantum_density_multi` 循环各 ladder 求和 |
+
+**关键文献**：[references.md](references.md) §B（AFS 1982 2D 态密度 `g_v·m*/(πħ²)` 与费米占据积分；Stern & Howard 1967 反型层子带占据；Ashcroft & Mermin 费米分布）。
