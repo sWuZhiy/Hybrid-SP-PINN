@@ -12,14 +12,14 @@
 1. **设计与推导**（§8.1–§8.4）：从静电学第一性原理出发，推导界面 Robin 条件、氧化层解析解、标幺化方案；诊断出「光滑网络无法表示介电导数跳变」的核心难题并给出解法。
 2. **编写 [src/poisson_pinn.py](../src/poisson_pinn.py)**（新建）：MLP + 硬约束 + 损失 + 训练循环 + drop-in 入口。
 3. **更新 [configs/default.yaml](../configs/default.yaml)**：新增 `pinn` 训练超参数段。
-4. **编写 [tests/test_poisson_pinn.py](../tests/test_poisson_pinn.py)**（新建）：6 项测试。
+4. **编写 [tests/test_poisson_pinn.py](../tests/test_poisson_pinn.py)**（新建）：7 项测试。
 5. **编写 [experiments/07_poisson_pinn.py](../experiments/07_poisson_pinn.py)**（新建）：对照图 + 消融图 + 指标 CSV。
 6. **调试中发现并修复 3 个问题**：
    - Robin 界面条件**符号错误**（写成减号）——由 D 连续推导核对发现并改正（§8.2.1）；
    - `predict_full` 对 (1,1) 张量 `float(numpy())` 报 TypeError——改 `.detach().item()`；
    - **强反型冻结 n 直接训练失败**（max|Δφ|=1137 mV）——诊断为鸡-蛋方向冲突，用两阶段课程学习修复（§8.6.2）。
 7. **补测**：默认 config 两阶段课程（1500+1500）冻结 n 精度、soft-BC 消融。
-8. **全量测试**：`python -m pytest tests/ -q` → **64 项全部通过**（3:56）。
+8. **全量测试**：`python -m pytest tests/ -q` → **65 项全部通过**（4:06）。
 9. **定稿与推送**：实验脚本、图像说明（图 20–23）、README/索引全局补齐，提交推送 GitHub。
 
 ### 8.0.2 涉及文件与逐文件职责
@@ -28,7 +28,7 @@
 |---|---|---|
 | [src/poisson_pinn.py](../src/poisson_pinn.py) | 新建 | `PoissonPINN`（MLP：1→64×4→1，tanh，线性输出）；`PoissonPINNSolver`（有状态：配置读取、`_to_u` 标幺、`_phi_bar` 硬约束、`_loss`、`train`（warm_start/epochs/n_ramp_frac）、`predict_full` 氧化层重建）；`solve_poisson_pinn`（drop-in 入口，n 非零时默认两阶段课程） |
 | [configs/default.yaml](../configs/default.yaml) | 修改 | `pinn` 段：`epochs=3000`、`lam_iface=1.0`、`seed=0`、`hard_constraint=true`、`n_ramp_frac=0.5` |
-| [tests/test_poisson_pinn.py](../tests/test_poisson_pinn.py) | 新建 | 6 项测试（见 §8.6.1 下方清单），可直接 `python tests/test_poisson_pinn.py` 运行 |
+| [tests/test_poisson_pinn.py](../tests/test_poisson_pinn.py) | 新建 | 7 项测试（见 §8.6.1 下方清单），可直接 `python tests/test_poisson_pinn.py` 运行 |
 | [experiments/07_poisson_pinn.py](../experiments/07_poisson_pinn.py) | 新建 | 4 组对照/消融实验 + 图 + `pinn_metrics.csv` |
 | [图像物理内涵说明.md](../图像物理内涵说明.md) | 修改 | 新增 Stage 8 图 20–23 的物理内涵与判读要点 |
 | [README.md](../README.md) | 修改 | 勾选 Stage 8、测试清单补 `test_poisson_pinn.py` |
@@ -94,7 +94,7 @@ p-Si 内的自由电荷密度 `ρ = q(p − n − N_A)` 三项来自：
 ⟹  φ'_si / φ'_ox = ε_ox/ε_si = 1/3
 ```
 
-物理图像：E 线穿过界面时「折射」，折射率 = 介电常数比。φ 连续（势连续）+ φ' 跳 3 倍（场跳变）——这一「导数不连续」是 PINN 与 FDM 分道扬镳的地方（§8.3）。实测（耗尽剖面 Vg=1.5 V）：E_ox=6.435e7 V/m、E_si=2.144e7 V/m，比值 3.002 ≈ 理论值 3.000 ✓。
+物理图像：E 线穿过界面时「折射」，折射率 = 介电常数比。φ 连续（势连续）+ φ' 跳 3 倍（场跳变）——这一「导数不连续」是 PINN 与 FDM 分道扬镳的地方（§8.3）。实测（经典耗尽 Vg=1.0 V，FDM 参考解 φ_s=0.8998 V，见 §8.6）：E_ox=(Vg−φ_s)/t_ox=5.0e7 V/m，D 连续 ⟹ E_si=E_ox·(ε_ox/ε_si)=1.7e7 V/m，比值 E_ox/E_si=ε_si/ε_ox=3.000，与理论一致 ✓（测试 test_interface_displacement_continuity 直接验 |R_iface|/D_ref<5%）。
 
 ### 8.1.5 氧化层 φ 严格线性（ρ_ox=0 的解析解）
 
@@ -213,11 +213,11 @@ dphi_bar_du  = torch.autograd.grad(phi_bar, u, grad_outputs=ones, create_graph=T
 d2phi_bar_du2 = torch.autograd.grad(dphi_bar_du, u, grad_outputs=ones, create_graph=True)[0]
 ```
 
-两次 `autograd.grad`（第二次对一阶导图求导，`create_graph=True` 保持二阶可导）得到 d²φ̄/du²，再按 §8.2.2 链式法则换到物理量。空穴项指数截断 `clamp(−(EF+qφ)/kT, −60, 60)` 防止训练暂态 exp 溢出（截断只影响瞬态、不影响收敛解）。界面 Robin 在 `u0=[[0.0]]` 单点计算，`R_iface` 除以 D_ref 归一化。
+两次 `autograd.grad`（第二次对一阶导图求导，`create_graph=True` 保持二阶可导）得到 d²φ̄/du²，再按 §8.2.2 链式法则换到物理量。空穴项指数截断 `clamp(−(EF+qφ)/kT, −60, 40)` 防止训练暂态 exp 溢出（上限 40 低于 float32 溢出阈值 ~51.5；截断只影响瞬态、不影响收敛解）。界面 Robin 在 `u0=[[0.0]]` 单点计算，`R_iface` 除以 D_ref 归一化。
 
 | 物理量 | 代码 |
 |---|---|
-| 空穴 p=n_i·e^{−(EF+qφ)/kT}（截断） | `exp_arg=clamp(−(EF+qφ)/kT,−60,60)`; `p=n_i·exp(exp_arg)` |
+| 空穴 p=n_i·e^{−(EF+qφ)/kT}（截断） | `exp_arg=clamp(−(EF+qφ)/kT,−60,40)`; `p=n_i·exp(exp_arg)` |
 | PDE 残差 `−ε_si·d²φ/dz² − q(p−n−N_A)` | `R_phys`；`R_pde=R_phys/(q·N_A)` |
 | Robin（加号！）`ε_si·φ'(t_ox)+ε_ox(Vg−φ_s)/t_ox` | `R_iface_phys`；`R_iface=R_iface_phys/D_ref` |
 | 总损失 | `loss = mean(R_pde²) + λ_iface·R_iface²`（soft BC 另加 `φ̄(1)²`） |
@@ -261,7 +261,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 | 冻结 n，默认 config（两阶段 1500+1500 轮） | **3.21 mV** | 0.77 mV | 1.0765 / 1.0796 | 29 s | ✓ 默认设置复现 |
 | soft-BC 消融（hard_constraint=False，经典 n=0, Vg=1.0） | **53.94 mV** | 26.06 mV | —（φ(L)=0.13 mV） | 44 s | ✗ 比硬约束差 ~82 倍 |
 
-**本阶段 6 项单元测试**（`tests/test_poisson_pinn.py`）：
+**本阶段 7 项单元测试**（`tests/test_poisson_pinn.py`）：
 
 | 测试 | 验证内容 |
 |---|---|
@@ -271,6 +271,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 | `test_boundaries_and_oxide_linear` | φ(0)=Vg、φ(L)=0 精确（1e-14）；氧化层二阶差分=0 |
 | `test_interface_displacement_continuity` | \|ε_si·φ'+ε_ox(Vg−φ_s)/t_ox\| 相对 D_ref <0.05 |
 | `test_input_validation` | T≤0 抛 ValueError；未训练 predict 抛 RuntimeError |
+| `test_loss_finite_under_deep_negative_transient` | 强制 φ 深负（exp_arg 远超阈值），损失须保持有限（float32 溢出回归） |
 
 ### 8.6.1 强反型直接训练失败机理（鸡-蛋冲突，可写进论文）
 
@@ -316,7 +317,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 **（C）前向风险清单（Stage 9/10 设计要点，2026-08-17 增补）**
 
 1. **tol_V=1e-6 与 PINN 噪声地板的矛盾**（§8.4 已预警，现有实测佐证）：PINN 单次解精度 ~mV 级。若每轮 from-scratch 随机初始化，迭代间差异 ~mV，δ=max|φ_new−φ|<1e-6 不可达，SCF 会耗尽 max_iter。**缓解 = fine-tune + 固定 seed（论文 §3.3 自己提出的策略）**：near 收敛时 n 几乎不变、训练确定性 ⟹ 相邻两轮解可一致到远好于绝对误差，δ 可能继续下降。但论文「相同收敛阈值下迭代轮数基本一致」的结论**必须在 Stage 9 实测验证**，若不可达则如实改用停滞判据并报告。
-2. **默认入口有陷阱（Stage 9 接口）**：`solve_poisson_pinn` 对任何非零 n 都默认两阶段课程。Stage 9 混合循环每轮 n 都非零，若直接套默认入口，每轮都白做 n=0 半轮 warmup（+~15 s/轮）且可能引入扰动。**Stage 9 必须走「首轮两阶段 + 后续轮 warm_start=True、n_ramp_frac=0」路径**——参数已暴露可绕过，但设计时必须明确。
+2. **drop-in 仅签名兼容、行为不兼容（Stage 9 接口核心风险，2026-08-17 升级）**：`solve_sp` 内层以 `solve_poisson_nonlinear(device, n, EF, params, T, Vg, phi)` 调用（每轮 n 非零、用上一轮 φ 做初值），而 `solve_poisson_pinn` 每次调用都新建 solver 并从头两阶段——Stage 9 若直接替换，每轮随机重训 + 白做 n=0 warmup（~15 s/轮）+ 无法 fine-tune。**Stage 9 必须在循环外持有单个 `PoissonPINNSolver` 实例：首轮两阶段（先 n=0 再续训满 n），后续轮 `solver.train(n, warm_start=True, n_ramp_frac=0.0)`——不能用 `solve_poisson_pinn` 做 drop-in，要用类级 API。** 另注意 `n_ramp_frac` 默认值陷阱：config `n_ramp_frac: 0.5`，而 `solver.train()` 不传该参数时用 `self.n_ramp_frac=0.5` 走**单阶段 ramp**（8.64 mV），并非推荐的两阶段（2.69 mV）；两阶段默认只存在于 `solve_poisson_pinn` wrapper 内。故类级循环每轮必须显式传 `n_ramp_frac=0.0`，否则精度退化近 3 倍。
 3. **固定 seed 使 from-scratch 对比失效（Stage 10 消融）**：config 里 `seed=0` 固定，from-scratch 每次同种子实际上是确定性初始化，「from-scratch vs fine-tune」消融失去统计意义（且 seed=0 恰是收敛好的种子）。另注意：yaml 里写 `seed: null` 会让 `int(None)` 抛错（`p.get('seed', 0)` 的默认值只在键不存在时生效）。Stage 10 要真随机初始化时需显式传不同 seed。
 4. **强反型更深处未验证（Stage 9 精度风险）**：只验证到 Vg=1.5。Stage 9 电压扫描到 Vg≥2.0 时电子尖峰更窄更陡，3.21 mV 可能恶化。**建议 Stage 9 前补测 Vg=2.0 冻结 n 一例**。
 5. **phi0 参数未使用（接口，仅效率）**：签名与 `solve_poisson_nonlinear` 一致（drop-in 要求），但传入的 phi0 被忽略——Stage 7 的电压连续化初值加速在 PINN 侧没有对应利用。Stage 10 可考虑用 phi0 做预拟合（L2 拟合初值）作为 fine-tune 的增强。

@@ -9,7 +9,9 @@
   4. 边界与氧化层解析重建：φ(0)=Vg 精确、φ(L)=0 精确（硬约束）、
      氧化层 φ 严格线性（ρ_ox=0 的解析结果）；
   5. 界面 D 连续残差：|ε_si φ'(t_ox) + ε_ox(Vg−φ_s)/t_ox| 相对 D_ref 小；
-  6. 输入校验。
+  6. 输入校验；
+  7. 深负暂态溢出保护：空穴指数项在 φ 深负暂态下不应溢出为 inf/NaN
+     （float32 指数截断上限须低于溢出阈值 ~51.5）。
 
 注：PINN 为无监督训练（损失 = PDE 残差 + 界面 Robin，不含 FDM 标签），
 FDM 仅作验证基准。训练时间随 epochs 增长，本测试用中等 epochs 平衡
@@ -28,6 +30,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
+import torch
 
 from src.device import Device1D
 from src.fermi_level import find_fermi_level
@@ -191,6 +194,30 @@ def test_input_validation():
             np.zeros(device.z.size), EF, params, 0.0, 1.0)          # T <= 0
     with _expect_raises(RuntimeError):
         PoissonPINNSolver(device, config).predict_full(EF, params, 300.0, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# 7. 深负暂态溢出保护（float32 指数截断上限）
+# ---------------------------------------------------------------------------
+def test_loss_finite_under_deep_negative_transient():
+    """空穴指数项在 φ 深负暂态下应保持有限（clamp 上限低于 float32 溢出阈值）。"""
+    config = _load_config()
+    device = Device1D(config)
+    params = device.params
+    EF = find_fermi_level(params.n_i, params.NA, 300.0).EF
+    solver = PoissonPINNSolver(device, config)
+    # 强制输出层输出 −50，把 φ 压到 ~−1.3 V → exp_arg 远超旧 clamp 上限 60
+    # （~51.5 起 n_i·e^arg 溢出 float32）；新 clamp=40 应把 p 钳在有限值。
+    with torch.no_grad():
+        last = list(solver.model.net)[-1]
+        last.weight.zero_()
+        last.bias.fill_(-50.0)
+    z_si = device.z[device.is_si]
+    u = torch.tensor(solver._to_u(z_si), dtype=torch.float32).reshape(-1, 1)
+    n_si = torch.zeros((u.shape[0], 1))
+    loss = solver._loss(u, n_si, EF, params, 300.0, 1.0)
+    assert torch.isfinite(loss).item(), \
+        f"深负暂态下损失溢出为 {loss.item()}（应为有限值）"
 
 
 if __name__ == "__main__":

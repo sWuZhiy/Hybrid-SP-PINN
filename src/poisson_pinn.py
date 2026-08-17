@@ -125,8 +125,11 @@ class PoissonPINNSolver:
         dphi_dz = dphi_bar_du * (kT / q) / self.device.L_si
         d2phi_dz2 = d2phi_bar_du2 * (kT / q) / self.device.L_si ** 2
 
-        # 经典空穴（Si 内），指数截断防止暂态溢出
-        exp_arg = torch.clamp(-(EF + q * phi) / kT, -60.0, 60.0)
+        # 经典空穴（Si 内），指数截断防止暂态溢出。
+        # 上限取 40（非 60）：n_i·e^40≈3e33 m^-3 仍远低于 float32 上限 3.4e38；
+        # 实际溢出阈值约 51.5，60 已越界、安全网自身会溢出。物理解 exp_arg≤0，
+        # 40 仅钳制深负 φ 的野暂态，不影响收敛解（FDM 侧 np.float64 无需收紧）。
+        exp_arg = torch.clamp(-(EF + q * phi) / kT, -60.0, 40.0)
         p = params.n_i * torch.exp(exp_arg)
 
         NA = params.NA

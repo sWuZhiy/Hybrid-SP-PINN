@@ -42,7 +42,7 @@ python tests/test_sp_solver.py
 python tests/test_poisson_pinn.py
 ```
 
-全量（64 项，约 4 分钟）：`python -m pytest tests/ -q`
+全量（65 项，约 4 分钟）：`python -m pytest tests/ -q`
 
 ## 物理模型
 
