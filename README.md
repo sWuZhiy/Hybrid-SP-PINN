@@ -39,7 +39,10 @@ python tests/test_schrodinger_fdm.py
 python tests/test_quantum_density.py
 python tests/test_fermi_level.py
 python tests/test_sp_solver.py
+python tests/test_poisson_pinn.py
 ```
+
+全量（64 项，约 4 分钟）：`python -m pytest tests/ -q`
 
 ## 物理模型
 
@@ -64,7 +67,7 @@ python tests/test_sp_solver.py
 - [x] Stage 5：量子电子密度模块
 - [x] Stage 6：费米能级 / 电中性
 - [x] Stage 7：完整 FDM SP baseline
-- [ ] Stage 8：Poisson-PINN 独立求解器
+- [x] Stage 8：Poisson-PINN 独立求解器
 - [ ] Stage 9：Hybrid SP-PINN
 - [ ] Stage 10：PINN 训练策略
 - [ ] Stage 11：严格对比实验

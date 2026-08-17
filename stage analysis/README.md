@@ -17,7 +17,7 @@
 | 5 | 量子电子密度 | ✅ | 2D DOS + 费米占据 | [stage5.md](stage5.md) |
 | 6 | 费米能级 / 电中性 | ✅ | bulk 电中性求根 | [stage6.md](stage6.md) |
 | 7 | 完整 FDM SP baseline | ✅ | Gummel+Newton+Anderson 自洽 | [stage7.md](stage7.md) |
-| 8 | Poisson-PINN 独立求解器 | 🔶 实施中 | PINN 替代 Poisson | [stage8.md](stage8.md) |
+| 8 | Poisson-PINN 独立求解器 | ✅ 已完成 | PINN 替代 Poisson | [stage8.md](stage8.md) |
 | 9 | Hybrid SP-PINN | ⬜ | 只换 Poisson 模块 | [stage9.md](stage9.md) |
 | 10 | PINN 训练策略 | ⬜ | from-scratch vs fine-tune | [stage10.md](stage10.md) |
 | 11 | 严格对比实验 | ⬜ | 消融 + 指标矩阵 | [stage11.md](stage11.md) |
