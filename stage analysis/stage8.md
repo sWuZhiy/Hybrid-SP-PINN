@@ -261,6 +261,8 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 | 冻结 n，默认 config（两阶段 1500+1500 轮） | **3.21 mV** | 0.77 mV | 1.0765 / 1.0796 | 29 s | ✓ 默认设置复现 |
 | soft-BC 消融（hard_constraint=False，经典 n=0, Vg=1.0） | **53.94 mV** | 26.06 mV | —（φ(L)=0.13 mV） | 44 s | ✗ 比硬约束差 ~82 倍 |
 
+> **指标口径说明**：上表 max|Δφ|、MAE、rel-L2 均在全器件网格（氧化层 + Si，~1000 点）上计算。氧化层为解析线性重建（误差≈0），Si 区才是 PINN 实际求解域，故 rel-L2 整体略偏乐观；论文引用时须注明「全器件口径，含解析氧化层」。Si 区单独口径可在 Stage 11 对比实验中补报。
+
 **本阶段 7 项单元测试**（`tests/test_poisson_pinn.py`）：
 
 | 测试 | 验证内容 |
@@ -269,7 +271,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 | `test_dropin_classical_vs_fdm` | n=0、Vg 0.5/1.0，PINN vs FDM max\|Δφ\|<10 mV |
 | `test_dropin_frozen_n_vs_fdm` | SP 自洽 n 冻结、Vg=1.5，max\|Δφ\|<10 mV |
 | `test_boundaries_and_oxide_linear` | φ(0)=Vg、φ(L)=0 精确（1e-14）；氧化层二阶差分=0 |
-| `test_interface_displacement_continuity` | \|ε_si·φ'+ε_ox(Vg−φ_s)/t_ox\| 相对 D_ref <0.05 |
+| `test_interface_displacement_continuity` | autodiff 真导数下 \|ε_si·φ'+ε_ox(Vg−φ_s)/t_ox\| 相对 D_ref <0.05 |
 | `test_input_validation` | T≤0 抛 ValueError；未训练 predict 抛 RuntimeError |
 | `test_loss_finite_under_deep_negative_transient` | 强制 φ 深负（exp_arg 远超阈值），损失须保持有限（float32 溢出回归） |
 

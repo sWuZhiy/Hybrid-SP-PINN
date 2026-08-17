@@ -19,7 +19,7 @@ material:
   valley:
     g_s: 2              # 自旋简并度
     g_v: [2, 4]         # 能谷简并度（二重 / 四重）
-    # 注：各能谷组的 z 向限域质量 m _z 与平面 DOS 质量 m_par 由 m_l/m_t 推导：
+    # 注：各能谷组的 z 向限域质量 m_z 与平面 DOS 质量 m_par 由 m_l/m_t 推导：
     #     m_z = [m_l, m_t]，m_par = [m_t, sqrt(m_l*m_t)]，见 materials.py
 
 substrate:

@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 
+from src import constants
 from src.device import Device1D
 from src.fermi_level import find_fermi_level
 from src.poisson_pinn import PoissonPINNSolver, solve_poisson_pinn
@@ -148,22 +149,29 @@ def test_boundaries_and_oxide_linear():
 # 5. 界面 D 连续残差
 # ---------------------------------------------------------------------------
 def test_interface_displacement_continuity():
-    """|ε_si φ'(t_ox) + ε_ox(Vg−φ_s)/t_ox| 相对 ε_ox·Vg/t_ox 应小。"""
+    """|ε_si φ'(t_ox) + ε_ox(Vg−φ_s)/t_ox| 相对 ε_ox·Vg/t_ox 应小（autodiff 真导数）。"""
     config = _load_config()
     device = Device1D(config)
     params = device.params
     T = 300.0
     Vg = 1.0
     EF = find_fermi_level(params.n_i, params.NA, T).EF
-    phi = solve_poisson_pinn(device, np.zeros(device.z.size), EF, params, T,
-                             Vg, epochs=EPOCHS)
-    i0 = int(np.argmax(device.is_si))
-    phi_s = phi[i0]
-    dphi_dz0 = (phi[i0 + 1] - phi[i0]) / (device.z[i0 + 1] - device.z[i0])
+    solver = PoissonPINNSolver(device, config)
+    solver.train(np.zeros(device.z.size), EF, params, T, Vg, epochs=EPOCHS)
+    kT = constants.kB * T
+    q = constants.q
+    # 用 autodiff 直接求 φ'(t_ox)（与 _loss 的 Robin 项一致），
+    # 而非网格前向差分（O(dz) 近似），在强反型尖峰区更准确。
+    u0 = torch.tensor([[0.0]], dtype=torch.float32, requires_grad=True)
+    phi_bar0 = solver._phi_bar(u0)
+    dphi_bar_du0 = torch.autograd.grad(
+        phi_bar0, u0, grad_outputs=torch.ones_like(phi_bar0))[0]
+    dphi_dz0 = dphi_bar_du0.detach().item() * (kT / q) / device.L_si
+    phi_s = (kT / q) * phi_bar0.detach().item()
     R = params.eps_si * dphi_dz0 \
         + params.eps_ox * (Vg - phi_s) / device.t_ox
     D_ref = params.eps_ox * Vg / device.t_ox
-    rel = abs(float(R)) / D_ref
+    rel = abs(R) / D_ref
     assert rel < 0.05, f"界面 D 连续残差相对值 {rel:.3e} 超限"
 
 

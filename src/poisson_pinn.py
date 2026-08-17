@@ -77,7 +77,7 @@ class PoissonPINNSolver:
         self.hidden_width = int(p.get('hidden_width', 64))
         self.activation = p.get('activation', 'tanh')
         self.lr = float(p.get('lr', 1e-3))
-        self.epochs = int(p.get('epochs', 5000))
+        self.epochs = int(p.get('epochs', 3000))
         self.lam_iface = float(p.get('lam_iface', 1.0))
         self.hard_constraint = bool(p.get('hard_constraint', True))
         self.n_ramp_frac = float(p.get('n_ramp_frac', 0.5))

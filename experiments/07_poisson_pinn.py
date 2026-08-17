@@ -81,6 +81,8 @@ def run_case(device, config, n_frozen, EF, params, Vg, phi0_fdm=None,
                                     phi0_fdm)
     err = phi_p - phi_f
     i0 = int(np.argmax(device.is_si))
+    # 指标口径：max|Δφ|/MAE/rel-L2 均在全器件网格（含解析氧化层）上计算，
+    # 氧化层为线性重建误差≈0，会稀释整体指标；Si 区才是 PINN 实际求解域。
     rel_l2 = float(np.linalg.norm(err) / np.linalg.norm(phi_f))
     return {
         'Vg': Vg,
