@@ -39,20 +39,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = os.path.join(ROOT, 'configs', 'default.yaml')
 
 
-def _device():
-    return Device1D({'geometry': {'t_ox_nm': 2.0, 'L_si_nm': 100.0,
-                                  'n_grid': 400},
-                     'material': {'eps_si_r': 11.7, 'eps_ox_r': 3.9,
-                                  'm_l': 0.91, 'm_t': 0.19, 'm_ox': 0.5,
-                                  'delta_Ec_eV': 3.1, 'E_g_eV': 1.12,
-                                  'valley': {'g_s': 2, 'g_v': [2, 4]}},
-                     'substrate': {'type': 'p', 'NA_cm3': 1.0e+17,
-                                   'n_i_cm3': 1.5e10},
-                     'thermal': {'T_K': 300.0},
-                     'solver': {'num_states': 10, 'mixing_alpha': 0.5,
-                                'tol_V': 1.0e-6, 'max_iter': 200}})
-
-
 def _load_config():
     from src.device import load_config
     return load_config(CONFIG)

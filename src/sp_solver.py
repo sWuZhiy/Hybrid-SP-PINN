@@ -53,7 +53,7 @@ class SPResult:
     """自洽求解结果（单位均为 SI；能量相对 bulk 本征能级 E_i=0）。"""
     phi: np.ndarray                 # 静电势 [V]，形状 (n_grid,)
     Efield: np.ndarray              # 电场 -dphi/dz [V/m]
-    Ec: np.ndarray                  # 导带底 Ec(z) = E_g/2 - q*phi [J]
+    Ec: np.ndarray                  # 导带底 Ec(z) = E_g/2 - q*phi [J]（仅 Si 内有物理意义；氧化层内只是 E_g/2 - q*phi 的算术值，不具物理导带底含义）
     n: np.ndarray                   # 量子电子体密度 [1/m^3]
     p: np.ndarray                   # 经典空穴体密度 [1/m^3]
     rho: np.ndarray                 # 空间电荷密度 [C/m^3]
