@@ -3,7 +3,7 @@
 内容（对应项目搭建说明 §34 / 《stage analysis/stage8.md》）：
   1. 经典非线性 Poisson（n=0，含指数空穴项）PINN vs FDM Newton 剖面对照
      （Vg = 0.5 / 1.0 V）——同一方程、同一边界、严格受控对照；
-  2. 冻结量子电子密度 n（SP 自洽收敛解）的对照（Stage 9 预演，Vg=1.5 V），
+  2. 冻结量子电子密度 n（SP 自洽收敛解）的对照（Stage 9 预演，Vg=1.5 / 2.0 V），
      采用默认两阶段课程学习（先 n=0 经典、再续训满 n）；
   3. hard vs soft BC 消融（经典 Vg=1.0 V）——硬约束精度优势的实测证据；
   4. 每例输出：φ 对照 + 逐点误差 + 界面局部放大 + 训练损失曲线；
@@ -40,7 +40,7 @@ FIG_DIR = os.path.join(ROOT, 'results', 'figures')
 
 T_K = 300.0
 VGS_CLASSICAL = [0.5, 1.0]              # 经典（n=0）对照的 Vg [V]
-V_FROZEN = 1.5                          # 冻结 n 对照的 Vg [V]
+VGS_FROZEN = [1.5, 2.0]                 # 冻结 n 对照的 Vg [V]（强反型，Stage 9 预演）
 
 
 def run_case(device, config, n_frozen, EF, params, Vg, phi0_fdm=None,
@@ -226,27 +226,29 @@ def main():
         metrics.append(case)
 
     # ---------- 2. 冻结 n 对照（Stage 9 预演，两阶段课程） ----------
-    res = solve_sp(device, V_FROZEN, config)
-    assert res.converged, f'SP(Vg={V_FROZEN}) 未收敛'
     num_states = int(config['solver']['num_states'])
-    n_final, _, _, _, _, _ = compute_carriers(device, res.phi, EF, params,
-                                              T_K, num_states)
-    print(f"\nSP(Vg={V_FROZEN} V): 收敛（{res.iterations} 轮），"
-          f"Ns = {res.Ns_total/1e4:.3g} cm^-2 → 冻结 n 作 PINN 输入")
-    case = run_case(device, config, n_final, EF, params, V_FROZEN,
-                    phi0_fdm=res.phi)
-    _print_case(f"冻结 n, Vg={V_FROZEN} V（两阶段课程）", case)
-    df = pd.DataFrame({'z_nm': z_nm, 'phi_FDM_V': case['phi_f'],
-                       'phi_PINN_V': case['phi_p'], 'err_V': case['err']})
-    df.to_csv(os.path.join(FIG_DIR, 'pinn_frozen_n_Vg1.5_vs_fdm.csv'),
-              index=False)
-    fig = fig_comparison(device, case)
-    for ext in ('png', 'pdf'):
-        fig.savefig(os.path.join(FIG_DIR, f'pinn_frozen_n_Vg1.5_vs_fdm.{ext}'),
-                    dpi=200, bbox_inches='tight')
-    plt.close(fig)
-    print('  图/数据已保存（冻结 n）')
-    metrics.append(case)
+    for Vg in VGS_FROZEN:
+        res = solve_sp(device, Vg, config)
+        assert res.converged, f'SP(Vg={Vg}) 未收敛'
+        n_final, _, _, _, _, _ = compute_carriers(device, res.phi, EF, params,
+                                                  T_K, num_states)
+        print(f"\nSP(Vg={Vg} V): 收敛（{res.iterations} 轮），"
+              f"Ns = {res.Ns_total/1e4:.3g} cm^-2 → 冻结 n 作 PINN 输入")
+        case = run_case(device, config, n_final, EF, params, Vg,
+                        phi0_fdm=res.phi)
+        _print_case(f"冻结 n, Vg={Vg} V（两阶段课程）", case)
+        df = pd.DataFrame({'z_nm': z_nm, 'phi_FDM_V': case['phi_f'],
+                           'phi_PINN_V': case['phi_p'], 'err_V': case['err']})
+        df.to_csv(os.path.join(FIG_DIR, f'pinn_frozen_n_Vg{Vg}_vs_fdm.csv'),
+                  index=False)
+        fig = fig_comparison(device, case)
+        for ext in ('png', 'pdf'):
+            fig.savefig(os.path.join(FIG_DIR,
+                                     f'pinn_frozen_n_Vg{Vg}_vs_fdm.{ext}'),
+                        dpi=200, bbox_inches='tight')
+        plt.close(fig)
+        print(f'  图/数据已保存（冻结 n, Vg={Vg}）')
+        metrics.append(case)
 
     # ---------- 3. hard vs soft BC 消融 ----------
     Vg_ab = 1.0
@@ -269,7 +271,7 @@ def main():
 
     # ---------- 汇总指标表 ----------
     df_m = pd.DataFrame([{
-        'case': ('冻结 n（两阶段）' if c['Vg'] == V_FROZEN
+        'case': ('冻结 n（两阶段）' if c['Vg'] in VGS_FROZEN
                  else f"经典 n=0, Vg={c['Vg']}"),
         'Vg_V': c['Vg'],
         'hard_constraint': c['hard_constraint'],

@@ -20,7 +20,7 @@
    - **强反型冻结 n 直接训练失败**（max|Δφ|=1137 mV）——诊断为鸡-蛋方向冲突，用两阶段课程学习修复（§8.6.2）。
 7. **补测**：默认 config 两阶段课程（1500+1500）冻结 n 精度、soft-BC 消融。
 8. **全量测试**：`python -m pytest tests/ -q` → **65 项全部通过**（4:06）。
-9. **定稿与推送**：实验脚本、图像说明（图 20–23）、README/索引全局补齐，提交推送 GitHub。
+9. **定稿与推送**：实验脚本、图像说明（图 20–24）、README/索引全局补齐，提交推送 GitHub。
 
 ### 8.0.2 涉及文件与逐文件职责
 
@@ -30,7 +30,7 @@
 | [configs/default.yaml](../configs/default.yaml) | 修改 | `pinn` 段：`epochs=3000`、`lam_iface=1.0`、`seed=0`、`hard_constraint=true`、`n_ramp_frac=0.5` |
 | [tests/test_poisson_pinn.py](../tests/test_poisson_pinn.py) | 新建 | 7 项测试（见 §8.6.1 下方清单），可直接 `python tests/test_poisson_pinn.py` 运行 |
 | [experiments/07_poisson_pinn.py](../experiments/07_poisson_pinn.py) | 新建 | 4 组对照/消融实验 + 图 + `pinn_metrics.csv` |
-| [图像物理内涵说明.md](../图像物理内涵说明.md) | 修改 | 新增 Stage 8 图 20–23 的物理内涵与判读要点 |
+| [图像物理内涵说明.md](../图像物理内涵说明.md) | 修改 | 新增 Stage 8 图 20–24 的物理内涵与判读要点 |
 | [README.md](../README.md) | 修改 | 勾选 Stage 8、测试清单补 `test_poisson_pinn.py` |
 | stage analysis/README.md、stage8.md | 修改 | 索引状态 ✅、本文档 |
 | scratch_verify_pinn.py / scratch_diagnose_frozen.py / scratch_remeasure.py | 已删除 | 调试期临时脚本（诊断 Robin 符号、强反型失败机理、补测），结论已并入 §8.6，不入库 |
@@ -44,10 +44,11 @@
 | `pinn_classical_Vg0.5_vs_fdm.{png,pdf,csv}` | 经典 n=0、Vg=0.5 对照（4 面板图 + 剖面 CSV） |
 | `pinn_classical_Vg1.0_vs_fdm.{png,pdf,csv}` | 经典 n=0、Vg=1.0 对照 |
 | `pinn_frozen_n_Vg1.5_vs_fdm.{png,pdf,csv}` | 冻结量子 n、Vg=1.5 强反型对照（两阶段课程） |
+| `pinn_frozen_n_Vg2.0_vs_fdm.{png,pdf,csv}` | 冻结量子 n、Vg=2.0 更深反型对照（两阶段课程，§8.7C-4 补测） |
 | `pinn_ablation_hard_vs_soft_bc.{png,pdf}` | hard vs soft BC 消融（逐点误差 + rel-L2 柱状图） |
 | `pinn_metrics.csv` | 全部 case 的 max\|Δφ\| / MAE / rel-L2 / φ_s / wall time 汇总 |
 
-**关键数值**（实测，seed=0）：经典 0.685/0.658 mV；冻结 n 3.21 mV（默认 3000 轮两阶段）；soft-BC 53.94 mV；rel-L2 0.10%–0.26%；单次训练 27–45 s。
+**关键数值**（实测，seed=0）：经典 0.685/0.658 mV；冻结 n Vg=1.5 3.21 mV / Vg=2.0 1.84 mV（默认 3000 轮两阶段）；soft-BC 53.94 mV；rel-L2 0.07%–0.26%；单次训练 27–45 s。
 
 ---
 
@@ -259,6 +260,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 | 冻结 n + n-ramp 课程（4000 轮） | 8.64 mV | 3.81 mV | 1.0710 / 1.0796 | 38 s | ✓ |
 | 冻结 n + 两阶段续训（3000+3000 轮） | **2.69 mV** | 1.49 mV | 1.0774 / 1.0796 | ~60 s | ✓✓ 最优 |
 | 冻结 n，默认 config（两阶段 1500+1500 轮） | **3.21 mV** | 0.77 mV | 1.0765 / 1.0796 | 29 s | ✓ 默认设置复现 |
+| 冻结 n, Vg=2.0（两阶段 1500+1500 轮） | **1.84 mV** | 0.30 mV | 1.1813 / 1.1819 | ~40 s | ✓ 更深反型，未恶化 |
 | soft-BC 消融（hard_constraint=False，经典 n=0, Vg=1.0） | **53.94 mV** | 26.06 mV | —（φ(L)=0.13 mV） | 44 s | ✗ 比硬约束差 ~82 倍 |
 
 > **指标口径说明**：上表 max|Δφ|、MAE、rel-L2 均在全器件网格（氧化层 + Si，~1000 点）上计算。氧化层为解析线性重建（误差≈0），Si 区才是 PINN 实际求解域，故 rel-L2 整体略偏乐观；论文引用时须注明「全器件口径，含解析氧化层」。Si 区单独口径可在 Stage 11 对比实验中补报。
@@ -321,7 +323,7 @@ Si 区由 PINN 在 u_si 上输出 φ̄、乘 kT/q 还原；氧化层按 §8.1.5 
 1. **tol_V=1e-6 与 PINN 噪声地板的矛盾**（§8.4 已预警，现有实测佐证）：PINN 单次解精度 ~mV 级。若每轮 from-scratch 随机初始化，迭代间差异 ~mV，δ=max|φ_new−φ|<1e-6 不可达，SCF 会耗尽 max_iter。**缓解 = fine-tune + 固定 seed（论文 §3.3 自己提出的策略）**：near 收敛时 n 几乎不变、训练确定性 ⟹ 相邻两轮解可一致到远好于绝对误差，δ 可能继续下降。但论文「相同收敛阈值下迭代轮数基本一致」的结论**必须在 Stage 9 实测验证**，若不可达则如实改用停滞判据并报告。
 2. **drop-in 仅签名兼容、行为不兼容（Stage 9 接口核心风险，2026-08-17 升级）**：`solve_sp` 内层以 `solve_poisson_nonlinear(device, n, EF, params, T, Vg, phi)` 调用（每轮 n 非零、用上一轮 φ 做初值），而 `solve_poisson_pinn` 每次调用都新建 solver 并从头两阶段——Stage 9 若直接替换，每轮随机重训 + 白做 n=0 warmup（~15 s/轮）+ 无法 fine-tune。**Stage 9 必须在循环外持有单个 `PoissonPINNSolver` 实例：首轮两阶段（先 n=0 再续训满 n），后续轮 `solver.train(n, warm_start=True, n_ramp_frac=0.0)`——不能用 `solve_poisson_pinn` 做 drop-in，要用类级 API。** 另注意 `n_ramp_frac` 默认值陷阱：config `n_ramp_frac: 0.5`，而 `solver.train()` 不传该参数时用 `self.n_ramp_frac=0.5` 走**单阶段 ramp**（8.64 mV），并非推荐的两阶段（2.69 mV）；两阶段默认只存在于 `solve_poisson_pinn` wrapper 内。故类级循环每轮必须显式传 `n_ramp_frac=0.0`，否则精度退化近 3 倍。
 3. **固定 seed 使 from-scratch 对比失效（Stage 10 消融）**：config 里 `seed=0` 固定，from-scratch 每次同种子实际上是确定性初始化，「from-scratch vs fine-tune」消融失去统计意义（且 seed=0 恰是收敛好的种子）。另注意：yaml 里写 `seed: null` 会让 `int(None)` 抛错（`p.get('seed', 0)` 的默认值只在键不存在时生效）。Stage 10 要真随机初始化时需显式传不同 seed。
-4. **强反型更深处未验证（Stage 9 精度风险）**：只验证到 Vg=1.5。Stage 9 电压扫描到 Vg≥2.0 时电子尖峰更窄更陡，3.21 mV 可能恶化。**建议 Stage 9 前补测 Vg=2.0 冻结 n 一例**。
+4. **强反型更深处未验证（Stage 9 精度风险）——已解除（2026-08-17）**：已补测 Vg=2.0 冻结 n（两阶段 1500+1500）：max|Δφ|=1.84 mV、rel-L2=0.070%，未恶化反而略优于 Vg=1.5（3.21 mV）。Stage 9 电压扫描至 Vg=2.0 已有精度依据；更深处（Vg>2.0）仍建议在 Stage 9 实测确认。
 5. **phi0 参数未使用（接口，仅效率）**：签名与 `solve_poisson_nonlinear` 一致（drop-in 要求），但传入的 phi0 被忽略——Stage 7 的电压连续化初值加速在 PINN 侧没有对应利用。Stage 10 可考虑用 phi0 做预拟合（L2 拟合初值）作为 fine-tune 的增强。
 6. **全局随机种子重置副作用**：每次构造 solver 都 `torch.manual_seed(seed)` 重置全局随机状态——未来实验里 PINN 训练与其他随机过程交错时会互相干扰。可改为局部 generator。
 7. **效率叙事**：单点 Hybrid 训练 27–45 s vs FDM ~ms，处于劣势；效率优势只在 Stage 12 参数化推理。论文 §1.1 的定位（参数化扫描场景）方向正确，表述须守住。
