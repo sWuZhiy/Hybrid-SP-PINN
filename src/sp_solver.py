@@ -36,6 +36,7 @@ Newton 处理 p 的指数非线性；外层把 G(φ) 当作固定点映射，先
 """
 
 from dataclasses import dataclass
+import functools
 
 import numpy as np
 from scipy.sparse import diags
@@ -68,6 +69,7 @@ class SPResult:
     iterations: int                 # 实际外层迭代轮数
     history: list                   # 每轮 max|phi_new - phi_old| [V]
     Vg: float                       # 栅压 [V]
+    stagnated: bool = False         # 是否因外层停滞（G 漂移卡平台）提前 break（from_scratch 消融用）
 
 
 def classical_hole_density(phi, EF, n_i, T, is_si):
@@ -237,32 +239,41 @@ def _make_fdm_poisson_step(device, EF, params, T, Vg, config=None):
     return step
 
 
-def _make_pinn_poisson_step(device, EF, params, T, Vg, config):
-    """内层 Poisson 求解器（PINN，有状态 warm-start）：poisson_step(n, phi) -> phi_new。
+def _make_pinn_poisson_step(device, EF, params, T, Vg, config,
+                            training_strategy='fine_tune', base_seed=None):
+    """内层 Poisson 求解器（PINN）：poisson_step(n, phi) -> phi_new。
 
-    Stage 9 混合循环在循环外持**单个** PoissonPINNSolver（权重跨轮复用），
-    不能每轮新建 solver。内层每次**训足固定轮数到收敛**（不用早停）：
-      - 首轮：两阶段课程（先以 n=0 训练经典解建立正确势阱，再续训满 n）；
-      - 后续轮：warm_start=True、n_ramp_frac=0.0 续训 scf_epochs 轮。
+    Stage 9 默认 fine_tune：循环外持**单个** PoissonPINNSolver（权重跨轮复用）。
+    Stage 10 新增 from_scratch：**每轮**新建 solver、随机重训（消融，见
+    stage10.md §10.3）。两者内层每次都**训足固定轮数到收敛**（不用早停）。
 
     为什么不用早停：强反型下 loss_pde 在电子尖峰处停滞在 ~7e-2，而界面 Robin
     残差仍在下降——「损失停滞」≠「解收敛」，实测早停会停在 Robin≈0.5 的坏局部
-    极小（φ_s 既非平带也非物理解）。故 Stage 9 内层训足固定轮数（首轮 epochs、
-    续训 scf_epochs=3000），实测收敛到 Robin≈0.004。
+    极小（φ_s 既非平带也非物理解）。故内层训足固定轮数（首轮 epochs、续训
+    scf_epochs=3000），实测收敛到 Robin≈0.004。
 
-    为什么要训到收敛（方案一，stage9.md §9.4）：外层 Gummel+Anderson 固定点
-    迭代的全部收敛理论都要求内层 G(n) 是**静态映射**（给定 n 唯一决定 φ_new）。
-    此前固定 scf_epochs=500 每轮不收敛，G 随网络权重每轮漂移，Anderson 在
-    「由不同映射产生的残差」上外推失效，强反型漂移到伪不动点却报收敛。
-    训足轮数后 G 近似静态，Anderson 才合法；伪不动点由 _check_physical 兜底。
-    phi 参数当前仅用于签名兼容（PINN 靠 warm_start 而非初值跟踪 φ；用 φ 做
-    预拟合初值是 Stage 10 的 fine-tune 策略，见 stage8.md §8.7C-5）。
+    为什么要训到收敛（stage9.md §9.4）：外层 Gummel+Anderson 固定点迭代的全部
+    收敛理论都要求内层 G(n) 是**静态映射**（给定 n 唯一决定 φ_new）。续训轮数
+    不足时 G 随权重每轮漂移，Anderson 在「由不同映射产生的残差」上外推失效，
+    强反型漂移到伪不动点却报收敛。训足后 G 近似静态，Anderson 才合法；伪不动点
+    由 _check_physical 兜底。
+
+    from_scratch 每轮必须重做「n=0 经典 + 满 n」两阶段课程：每轮 reset 抹掉势阱
+    记忆，random init + 满 n 直接训练会撞回 ~1.1 V 发散（poisson_pinn 文档串）。
+    每轮新建 solver 顺带规避「_reset_model 只重置权重、不清 Adam 状态」的动量
+    残留（stage10.md C2）。phi 参数仅用于签名兼容（PINN 靠 warm_start 而非初值
+    跟踪 φ；用 φ 做预拟合初值见 stage8.md §8.7C-5）。
     """
-    solver = PoissonPINNSolver(device, config)
-    n_epochs = solver.epochs
     p_cfg = config.get('pinn', {})
+    strategy = (training_strategy
+                if training_strategy is not None
+                else p_cfg.get('training_strategy', 'fine_tune'))
+    n_epochs = int(p_cfg.get('epochs', 3000))
     scf_epochs = int(p_cfg.get('scf_epochs', n_epochs))
-    initialized = False
+    if base_seed is None:
+        base_seed = p_cfg.get('from_scratch_seed', None)
+    if base_seed is not None:
+        base_seed = int(base_seed)
     # 界面（第一个 Si 点）与材料量，供物理守卫用
     i0 = int(np.argmax(device.is_si))
     eps_si = device.params.eps_si
@@ -304,6 +315,31 @@ def _make_pinn_poisson_step(device, EF, params, T, Vg, config):
                 f"{abs(R_iface)/D_ref:.3f} > 0.1（应为 0，φ_s={phi_s*1e3:.1f} mV）。"
                 "这是伪不动点（平带 φ_s≈0），已中止而非假收敛。")
 
+    if strategy == 'from_scratch':
+        iter_no = [0]
+
+        def step(n, phi):
+            seed = int(base_seed) + iter_no[0] if base_seed is not None else None
+            solver = PoissonPINNSolver(device, config, seed=seed)
+            iter_no[0] += 1
+            n_arr = np.asarray(n, dtype=float)
+            if np.max(np.abs(n_arr)) > 0.0:
+                warm_ep = max(int(round(0.5 * n_epochs)), 100)
+                solver.train(np.zeros(device.z.size), EF, params, T, Vg,
+                             epochs=warm_ep)
+                solver.train(n_arr, EF, params, T, Vg, warm_start=True,
+                             epochs=n_epochs - warm_ep, n_ramp_frac=0.0)
+            else:
+                solver.train(n_arr, EF, params, T, Vg)
+            phi_out = solver.predict_full(EF, params, T, Vg)
+            _check_physical(phi_out)
+            return phi_out
+        return step
+
+    # fine_tune（Stage 9 现状）
+    solver = PoissonPINNSolver(device, config, seed=base_seed)
+    initialized = False
+
     def step(n, phi):
         nonlocal initialized
         n_arr = np.asarray(n, dtype=float)
@@ -332,7 +368,8 @@ def solve_sp(device, Vg, config, phi0=None):
     return _solve_sp(device, Vg, config, phi0, _make_fdm_poisson_step)
 
 
-def solve_sp_pinn(device, Vg, config, phi0=None):
+def solve_sp_pinn(device, Vg, config, phi0=None, training_strategy=None,
+                  from_scratch_seed=None, stagnation_patience=None):
     """Hybrid SP-PINN（Stage 9，内层 Poisson 用 PINN），返回 SPResult。
 
     网格/材料/Schrödinger/密度公式/EF/mixing 与 solve_sp 完全相同，唯一差别是
@@ -349,16 +386,28 @@ def solve_sp_pinn(device, Vg, config, phi0=None):
     指数放大出远超真解的窄瞬态尖峰（实测 49 mV → n_max≈1900·NA），tanh MLP 照样
     表达不了（NaN 发散）。故 solve_sp_pinn 额外用外层信任域 max_dphi_V_pinn 限制
     每步 φ 变化，从源头防止超调（见 stage9.md §9.5）。
+
+    training_strategy: 'fine_tune'（默认，Stage 9 现状）或 'from_scratch'
+        （Stage 10 消融，每轮随机重训）；None 时读 config['pinn']['training_strategy']。
+    from_scratch_seed: from_scratch 基准种子（第 i 轮 seed = base + i）；None 时读
+        config['pinn']['from_scratch_seed']。
+    stagnation_patience: 外层停滞检测轮数（默认 None 关闭）。from_scratch 消融
+        （stage10.md）传 15 左右：G 漂移使 δ 卡在远高于 tol 的平台时提前 break。
     """
     tol = float(config['solver'].get('tol_V_pinn', 5e-4))
     max_dphi = config['solver'].get('max_dphi_V_pinn', None)
     if max_dphi is not None:
         max_dphi = float(max_dphi)
-    return _solve_sp(device, Vg, config, phi0, _make_pinn_poisson_step,
-                     tol=tol, max_dphi=max_dphi)
+    make_step = functools.partial(_make_pinn_poisson_step,
+                                  training_strategy=training_strategy,
+                                  base_seed=from_scratch_seed)
+    return _solve_sp(device, Vg, config, phi0, make_step,
+                     tol=tol, max_dphi=max_dphi,
+                     stagnation_patience=stagnation_patience)
 
 
-def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
+def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None,
+              stagnation_patience=None):
     """组装完整 Schrödinger–Poisson 自洽循环（Gummel+Anderson），返回 SPResult。
 
     内层 Poisson 由 make_step(device, EF, params, T, Vg, config) 返回的
@@ -382,6 +431,9 @@ def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
         max_dphi: 外层信任域——每步 φ 变化上限 [V]（默认 None 不限制）。仅 PINN
             循环由 solve_sp_pinn 传入，防止 Anderson 超调产生 tanh MLP 表达不了
             的窄瞬态电子尖峰（见 stage9.md）；FDM 内层对任意 n 稳定，保持 None。
+        stagnation_patience: 停滞检测——若 δ 连续这么多轮不再比此前最小值降低
+            10%，判定 G 漂移卡在平台、提前 break（默认 None 关闭）。仅 from_scratch
+            消融（stage10.md）由 solve_sp_pinn 传入，避免强反型白跑 max_iter 轮。
 
     Returns:
         SPResult。
@@ -426,9 +478,12 @@ def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
 
     history = []
     converged = False
+    stagnated = False
     iterations = 0
     x_hist = []   # 历史 φ
     r_hist = []   # 历史残差 r = G(φ) - φ
+    min_delta = float('inf')   # 停滞检测：历史最小 δ
+    stale = 0                  # 连续无改善轮数
 
     for it in range(max_iter):
         # 外层 Gummel：由当前 φ 解 Schrödinger 得量子电子密度 n(φ)，再解
@@ -450,6 +505,18 @@ def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
         if delta < tol:
             converged = True
             break
+
+        # 停滞检测（仅 from_scratch 消融用，stagnation_patience 非 None）：G 漂移
+        # 卡住时 δ 停在远高于 tol 的平台不再下降，提前 break 而非白跑 max_iter 轮。
+        if stagnation_patience is not None:
+            if delta < min_delta * 0.9:
+                min_delta = delta
+                stale = 0
+            else:
+                stale += 1
+                if stale >= stagnation_patience:
+                    stagnated = True
+                    break
 
         # Anderson 外推：min_γ ||r_k + Σ_j γ_j (r_j - r_k)||² 后
         # φ_{k+1} = φ_k + α r_k + Σ_j γ_j [(φ_j - φ_k) + α (r_j - r_k)]
@@ -496,4 +563,5 @@ def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
         iterations=iterations,
         history=history,
         Vg=Vg,
+        stagnated=stagnated,
     )

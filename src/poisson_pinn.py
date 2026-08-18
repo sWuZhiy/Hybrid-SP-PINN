@@ -82,9 +82,11 @@ class PoissonPINNSolver:
         self.hard_constraint = bool(p.get('hard_constraint', True))
         self.n_ramp_frac = float(p.get('n_ramp_frac', 0.5))
         if seed is None:
-            seed = int(p.get('seed', 0))
-        torch.manual_seed(seed)
-        np.random.seed(seed)
+            seed = p.get('seed', 0)
+        if seed is not None:
+            seed = int(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
         self.model = PoissonPINN(self.hidden_layers, self.hidden_width,
                                  self.activation)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)

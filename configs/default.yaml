@@ -47,6 +47,8 @@ pinn:
   epochs: 3000          # 训练轮数（单点训练；Stage 10 再调策略）
   lam_iface: 1.0        # 界面 Robin 软损失权重 λ_iface
   seed: 0               # 随机种子（保证可复现）
+  training_strategy: fine_tune  # Stage 10：'fine_tune'（默认）| 'from_scratch'（每轮随机重训消融）
+  from_scratch_seed: 0  # from_scratch 基准种子（第 i 轮 seed = base + i；实验脚本可覆盖 0/1/2）
   hard_constraint: true # 硬约束 φ̄(u)=(1-u)·NN(u) 强制 φ(L)=0（可消融）
   n_ramp_frac: 0.5      # 课程学习：前 50% 轮内 n 从 0 线性升满（强反型防错误势阱）
   scf_epochs: 3000      # 混合循环（Stage 9）warm-start 续训每轮固定轮数（训足到收敛；首轮用 epochs）
