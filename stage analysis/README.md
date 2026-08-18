@@ -22,5 +22,5 @@
 | 8 | Poisson-PINN 独立求解器 | ✅ 已完成 | PINN 替代 Poisson | [stage8.md](stage8.md) |
 | 9 | Hybrid SP-PINN | ✅ 已完成 | 只换 Poisson 模块 | [stage9.md](stage9.md) |
 | 10 | PINN 训练策略 | ⬜ | from-scratch vs fine-tune | [stage10.md](stage10.md) |
-| 11 | 严格对比实验 | ⬜ | 消融 + 指标矩阵 | [stage11.md](stage11.md) |
+| 11 | 严格对比实验（汇总补齐） | ⬜ | 统一口径 + 补齐指标 + 粗细网格 | [stage11.md](stage11.md) |
 | 12 | 参数化 PINN（可选） | ⬜ | (z, Vg)→φ | [stage12.md](stage12.md) |
