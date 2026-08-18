@@ -243,6 +243,7 @@ scf_epochs=3000 续训、信任域 max_dphi=0.02 V、seed=0 可复现）：
 - 图：`hybrid_sp_Vg{0.5,1.0,1.5,2.0}_vs_fdm.{png,pdf}`（每栅压 4 面板：φ 对照 / 误差 / n 对照 /
   收敛历史）、`hybrid_sp_summary.{png,pdf}`（φ_s、Ns、max|Δφ| 三面板汇总）；
 - 数据：`hybrid_sp_Vg{...}_vs_fdm.csv`（z、φ、n、err 逐点）、`hybrid_sp_metrics.csv`（汇总指标）。
+- 收敛断言：任一求解器 `converged=False` 即 raise（fail-fast，不把未收敛 φ 静默写进 CSV/图）。
 
 **测试（tests/test_sp_pinn.py，3 项）**：平带、Vg=1.0 对照、电压扫描暖启动。全量测试套件
 从 65 → **68 项**。

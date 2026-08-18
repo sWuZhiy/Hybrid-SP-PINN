@@ -46,7 +46,11 @@ VGS = [0.5, 1.0, 1.5, 2.0]              # Vg 扫描点 [V]（弱 → 强反型�
 
 
 def run_case(device, config, Vg, phi0_fdm, phi0_pinn):
-    """对单个 Vg 运行 FDM 与 Hybrid，返回结果 dict（各自自洽扫描初值）。"""
+    """对单个 Vg 运行 FDM 与 Hybrid，返回结果 dict（各自自洽扫描初值）。
+
+    任一求解器未收敛（converged=False）即 raise——防止把未收敛的 φ 静默写进
+    CSV/图（否则只会打印 conv=False、仍保存错误结果，见 stage9.md §9.6）。
+    """
     i0 = int(np.argmax(device.is_si))
 
     res_f = solve_sp(device, Vg, config, phi0=phi0_fdm)
@@ -54,6 +58,12 @@ def run_case(device, config, Vg, phi0_fdm, phi0_pinn):
     t0 = time.perf_counter()
     res_p = solve_sp_pinn(device, Vg, config, phi0=phi0_pinn)
     wall_p = time.perf_counter() - t0
+
+    if not (res_f.converged and res_p.converged):
+        raise RuntimeError(
+            f"Vg={Vg:.1f} V 未收敛，中止而非保存错误结果：FDM conv={res_f.converged}"
+            f"（{res_f.iterations} 轮）、Hybrid conv={res_p.converged}"
+            f"（{res_p.iterations} 轮）。")
 
     err = res_p.phi - res_f.phi
     rel_l2 = float(np.linalg.norm(err) / np.linalg.norm(res_f.phi))
