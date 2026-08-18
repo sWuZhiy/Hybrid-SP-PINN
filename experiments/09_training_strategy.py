@@ -77,10 +77,19 @@ def _sp_row(device, Vg, strategy, seed, res_f, res_p, aborted=False,
             'Ns_err_pct': float(ns_err)}
 
 
-def run_sp_sweep(device, config, fdm):
-    """每个 Vg 跑 FDM（已在 fdm 里）+ fine_tune + from_scratch×3（电压扫描初值）。"""
+def run_sp_sweep(device, config, fdm, csv_path=None):
+    """每个 Vg 跑 FDM（已在 fdm 里）+ fine_tune + from_scratch×3（电压扫描初值）。
+
+    csv_path 非 None 时每产出一行就落盘一次（增量保存），供长任务被中断后续跑，
+    不必重算已完成的部分。
+    """
     rows = []
     phi0_pinn = None
+
+    def emit(row):
+        rows.append(row)
+        if csv_path is not None:
+            pd.DataFrame(rows).to_csv(csv_path, index=False)
     for Vg in VGS:
         res_f = fdm[Vg]
         print(f"\n[Vg = {Vg} V]")
@@ -90,7 +99,7 @@ def run_sp_sweep(device, config, fdm):
         res_b = solve_sp_pinn(device, Vg, config, phi0=phi0_pinn,
                               training_strategy='fine_tune')
         wall_b = time.perf_counter() - t0
-        rows.append(_sp_row(device, Vg, 'fine_tune', None, res_f, res_b))
+        emit(_sp_row(device, Vg, 'fine_tune', None, res_f, res_b))
         print(f"  fine_tune: conv={res_b.converged} iters={res_b.iterations}"
               f"  wall={wall_b:.0f}s  φ_s err={rows[-1]['phi_s_err_mV']:.3f} mV")
 
@@ -104,13 +113,13 @@ def run_sp_sweep(device, config, fdm):
                                       training_strategy='from_scratch',
                                       from_scratch_seed=s,
                                       stagnation_patience=STAGNATION_PATIENCE)
-                rows.append(_sp_row(device, Vg, 'from_scratch', s, res_f, res_a))
+                emit(_sp_row(device, Vg, 'from_scratch', s, res_f, res_a))
                 print(f"  from_scratch seed={s}: conv={res_a.converged}"
                       f"  iters={res_a.iterations}"
                       f"  φ_s err={rows[-1]['phi_s_err_mV']:.3f} mV")
             except RuntimeError as e:
-                rows.append(_sp_row(device, Vg, 'from_scratch', s, res_f, None,
-                                    aborted=True, abort_msg=str(e)[:160]))
+                emit(_sp_row(device, Vg, 'from_scratch', s, res_f, None,
+                             aborted=True, abort_msg=str(e)[:160]))
                 print(f"  from_scratch seed={s}: 中止（{str(e)[:80]}）")
 
         # 电压扫描初值只来自可靠的 fine_tune 结果（from_scratch 未收敛/中止）
@@ -252,9 +261,8 @@ def main():
 
     if args.part in ('all', 'sp'):
         print('\n=== 全 SP 循环对照（fine_tune vs from_scratch）===')
-        df_sp = pd.DataFrame(run_sp_sweep(device, config, fdm))
-        df_sp.to_csv(os.path.join(FIG_DIR, 'training_strategy_sp.csv'),
-                     index=False)
+        sp_csv = os.path.join(FIG_DIR, 'training_strategy_sp.csv')
+        df_sp = pd.DataFrame(run_sp_sweep(device, config, fdm, csv_path=sp_csv))
         print('\n全 SP 循环指标 → training_strategy_sp.csv')
         print(df_sp.to_string(index=False))
         fig = fig_sp_iters(df_sp)
