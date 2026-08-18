@@ -170,7 +170,8 @@ class PoissonPINNSolver:
                 module.reset_parameters()
 
     def train(self, n_frozen, EF, params, T, Vg, warm_start=False, epochs=None,
-              n_ramp_frac=None):
+              n_ramp_frac=None, early_stop=False, rtol=1e-4, window=100,
+              patience=3):
         """训练 PINN 解非线性 Poisson（n_frozen 冻结），返回 self。
 
         Args:
@@ -182,6 +183,15 @@ class PoissonPINNSolver:
                 n 从 0 线性升到满值，让网络先学经典解（Robin 斜率目标温和），
                 再逐步加入量子电子。强反型下若不 ramp，电子尖峰（n≈百倍 NA）
                 与界面条件在训练早期方向冲突，网络会被拖入 φ_s<0 的错误势阱。
+            early_stop: 是否早停（loss 停滞即止）。Stage 9 混合循环内层必须
+                early_stop=False（默认，训足固定轮数到收敛）——强反型下损失在
+                ~7e-2 处平台但界面 Robin 仍在改善，「损失停滞」≠「解收敛」，早停
+                会停在 Robin≈0.5 的坏极小。训足后 G(n) 近似静态映射，外层
+                Gummel+Anderson 固定点迭代才合法（否则 G 每轮随权重漂移，Anderson
+                在「不同映射的残差」上外推失效，强反型漂移到伪不动点，见
+                stage9.md §9.4.3）。rtol/window/patience 为停滞判据（仅
+                early_stop=true 时生效）：每 window 轮比较窗口平均损失，相对改善
+                < rtol 计一次停滞，连续 patience 次停滞即停止。
         """
         if not warm_start:
             self._reset_model()
@@ -199,7 +209,11 @@ class PoissonPINNSolver:
             else float(np.clip(n_ramp_frac, 0.0, 1.0))
         ramp_epochs = int(round(n_epochs * ramp_frac))
 
+        window = max(int(window), 1)
+        patience = max(int(patience), 1)
         loss_hist = []
+        best = float('inf')
+        stale = 0
         t0 = time.perf_counter()
         for i in range(n_epochs):
             if i < ramp_epochs:
@@ -211,9 +225,18 @@ class PoissonPINNSolver:
             loss.backward()
             self.optimizer.step()
             loss_hist.append(float(loss.detach()))
+            if early_stop and (i + 1) % window == 0:
+                wa = float(np.mean(loss_hist[-window:]))
+                if wa < best * (1.0 - rtol):
+                    best = wa
+                    stale = 0
+                else:
+                    stale += 1
+                    if stale >= patience:
+                        break
         self.wall_time = time.perf_counter() - t0
         self.loss_history = loss_hist
-        self.n_epochs = n_epochs
+        self.n_epochs = len(loss_hist)   # 实际训练轮数（早停后可能 < 请求值）
         self._trained = True
         return self
 

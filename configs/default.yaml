@@ -33,7 +33,9 @@ thermal:
 solver:
   num_states: 15        # 束缚态数目（两组能谷合计）
   mixing_alpha: 0.5     # Anderson 混合的保守因子（外层固定点外推，0 < alpha <= 1）
-  tol_V: 1.0e-6         # 电势收敛阈值 [V]
+  max_dphi_V_pinn: 0.02 # PINN 外层信任域：每步 φ 最大变化 [V]（防 Anderson 超调产生不可表达窄尖峰；FDM 不启用）
+  tol_V: 1.0e-6         # 电势收敛阈值 [V]（FDM 内层可精确到 1e-10，1e-6 可达）
+  tol_V_pinn: 5.0e-4    # PINN 内层收敛阈值 [V]（噪声地板 ~1e-4，1e-6 不可达，见 stage9.md）
   max_iter: 200         # 最大自洽迭代轮数
 
 pinn:
@@ -47,3 +49,8 @@ pinn:
   seed: 0               # 随机种子（保证可复现）
   hard_constraint: true # 硬约束 φ̄(u)=(1-u)·NN(u) 强制 φ(L)=0（可消融）
   n_ramp_frac: 0.5      # 课程学习：前 50% 轮内 n 从 0 线性升满（强反型防错误势阱）
+  scf_epochs: 3000      # 混合循环（Stage 9）warm-start 续训每轮固定轮数（训足到收敛；首轮用 epochs）
+  early_stop: false     # 早停默认关：强反型下损失停滞≠解收敛（早停停在 Robin≈0.5 坏极小，Stage 10 再调）
+  early_stop_rtol: 1.0e-4  # 早停参数（仅 early_stop=true 时生效）
+  early_stop_window: 100
+  early_stop_patience: 3

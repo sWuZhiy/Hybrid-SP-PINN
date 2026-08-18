@@ -44,6 +44,7 @@ from scipy.sparse.linalg import spsolve
 from . import constants
 from .fermi_level import find_fermi_level
 from .poisson_fdm import harmonic_mean, solve_poisson_fdm
+from .poisson_pinn import PoissonPINNSolver
 from .quantum_density import quantum_density_multi
 from .schrodinger_fdm import solve_schrodinger
 
@@ -225,8 +226,147 @@ def solve_poisson_nonlinear(device, n_frozen, EF, params, T, Vg,
     return phi
 
 
+def _make_fdm_poisson_step(device, EF, params, T, Vg, config=None):
+    """内层 Poisson 求解器（FDM Newton）：poisson_step(n, phi) -> phi_new。
+
+    phi 作为 Newton 迭代初值（即当前 Gummel 迭代的 φ），与 Stage 7 内层
+    行为完全一致。
+    """
+    def step(n, phi):
+        return solve_poisson_nonlinear(device, n, EF, params, T, Vg, phi)
+    return step
+
+
+def _make_pinn_poisson_step(device, EF, params, T, Vg, config):
+    """内层 Poisson 求解器（PINN，有状态 warm-start）：poisson_step(n, phi) -> phi_new。
+
+    Stage 9 混合循环在循环外持**单个** PoissonPINNSolver（权重跨轮复用），
+    不能每轮新建 solver。内层每次**训足固定轮数到收敛**（不用早停）：
+      - 首轮：两阶段课程（先以 n=0 训练经典解建立正确势阱，再续训满 n）；
+      - 后续轮：warm_start=True、n_ramp_frac=0.0 续训 scf_epochs 轮。
+
+    为什么不用早停：强反型下 loss_pde 在电子尖峰处停滞在 ~7e-2，而界面 Robin
+    残差仍在下降——「损失停滞」≠「解收敛」，实测早停会停在 Robin≈0.5 的坏局部
+    极小（φ_s 既非平带也非物理解）。故 Stage 9 内层训足固定轮数（首轮 epochs、
+    续训 scf_epochs=3000），实测收敛到 Robin≈0.004。
+
+    为什么要训到收敛（方案一，stage9.md §9.4）：外层 Gummel+Anderson 固定点
+    迭代的全部收敛理论都要求内层 G(n) 是**静态映射**（给定 n 唯一决定 φ_new）。
+    此前固定 scf_epochs=500 每轮不收敛，G 随网络权重每轮漂移，Anderson 在
+    「由不同映射产生的残差」上外推失效，强反型漂移到伪不动点却报收敛。
+    训足轮数后 G 近似静态，Anderson 才合法；伪不动点由 _check_physical 兜底。
+    phi 参数当前仅用于签名兼容（PINN 靠 warm_start 而非初值跟踪 φ；用 φ 做
+    预拟合初值是 Stage 10 的 fine-tune 策略，见 stage8.md §8.7C-5）。
+    """
+    solver = PoissonPINNSolver(device, config)
+    n_epochs = solver.epochs
+    p_cfg = config.get('pinn', {})
+    scf_epochs = int(p_cfg.get('scf_epochs', n_epochs))
+    initialized = False
+    # 界面（第一个 Si 点）与材料量，供物理守卫用
+    i0 = int(np.argmax(device.is_si))
+    eps_si = device.params.eps_si
+    eps_ox = device.params.eps_ox
+    t_ox = device.t_ox
+
+    def _check_physical(phi_out):
+        """方案二：物理守卫，防止内层漂移到伪不动点却报收敛。
+
+        伪不动点有两个：平带（φ_s≈0，Vg=1.5 崩溃）与全转移（φ_s≈Vg，
+        Vg=2.0 崩溃）。二者都满足外层 δ<tol（被误判收敛），但都违反界面
+        电位移连续（Robin）：ε_si φ'_si(t_ox) + ε_ox(Vg−φ_s)/t_ox = 0。
+        本守卫在每轮内层解产出后检查 φ_s 是否越界、Robin 残差是否过大，
+        违反则抛错（中止而非假收敛）。
+        """
+        if not np.isfinite(phi_out).all():
+            raise RuntimeError(
+                "PINN 训练发散（输出含 NaN/Inf）。强反型区从零初值的经典解会高估 "
+                "φ_s，产生远超物理量级的暂态电子尖峰 n（~1e4·NA），tanh MLP 无法"
+                "表达（FDM 的 Newton 内层对这种尖峰无条件稳定，PINN 的梯度下降则"
+                "不行）。请改用电压扫描初值 phi0（上一栅压的收敛解）。")
+        phi_s = float(phi_out[i0])
+        lo, hi = min(0.0, Vg), max(0.0, Vg)
+        # 容差 1e-3 V：PINN 单解噪声地板 ~1e-4 V，平带（Vg=0）φ_s 有 ~1e-6 V 数值
+        # 误差，1e-9 会把它误判为越界；1 mV 远低于伪不动点的偏差（~100 mV），
+        # 仍能可靠拦截 φ_s<0 或 φ_s>Vg 的粗劣越界（全转移伪不动点）。
+        if not (lo - 1e-3 <= phi_s <= hi + 1e-3):
+            raise RuntimeError(
+                f"PINN 内层解非物理：表面势 φ_s={phi_s*1e3:.3f} mV 越出 "
+                f"[{lo*1e3:.1f}, {hi*1e3:.1f}] mV（正栅压下 0≤φ_s≤Vg，Gauss 定理）。"
+                "这是伪不动点（全转移 φ_s≈Vg），已中止而非假收敛。")
+        dz0 = device.z[i0 + 1] - device.z[i0]
+        dphi_si = (phi_out[i0 + 1] - phi_out[i0]) / dz0
+        R_iface = eps_si * dphi_si + eps_ox * (Vg - phi_s) / t_ox
+        D_ref = eps_ox * max(abs(Vg), 0.1) / t_ox
+        if abs(R_iface) / D_ref > 0.1:
+            raise RuntimeError(
+                f"PINN 内层解非物理：界面电位移不连续 |R_iface|/D_ref="
+                f"{abs(R_iface)/D_ref:.3f} > 0.1（应为 0，φ_s={phi_s*1e3:.1f} mV）。"
+                "这是伪不动点（平带 φ_s≈0），已中止而非假收敛。")
+
+    def step(n, phi):
+        nonlocal initialized
+        n_arr = np.asarray(n, dtype=float)
+        if not initialized:
+            if np.max(np.abs(n_arr)) > 0.0:
+                warm_ep = max(int(round(0.5 * n_epochs)), 100)
+                solver.train(np.zeros(device.z.size), EF, params, T, Vg,
+                             epochs=warm_ep)
+                solver.train(n_arr, EF, params, T, Vg, warm_start=True,
+                             epochs=n_epochs - warm_ep, n_ramp_frac=0.0)
+            else:
+                solver.train(n_arr, EF, params, T, Vg)
+            initialized = True
+        else:
+            solver.train(n_arr, EF, params, T, Vg, warm_start=True,
+                         epochs=scf_epochs, n_ramp_frac=0.0)
+        phi_out = solver.predict_full(EF, params, T, Vg)
+        _check_physical(phi_out)
+        return phi_out
+
+    return step
+
+
 def solve_sp(device, Vg, config, phi0=None):
-    """组装完整 Schrödinger–Poisson 自洽循环（Gummel+Newton），返回 SPResult。
+    """FDM 版 SP 自洽求解（Stage 7，内层 Poisson 用 Newton），返回 SPResult。"""
+    return _solve_sp(device, Vg, config, phi0, _make_fdm_poisson_step)
+
+
+def solve_sp_pinn(device, Vg, config, phi0=None):
+    """Hybrid SP-PINN（Stage 9，内层 Poisson 用 PINN），返回 SPResult。
+
+    网格/材料/Schrödinger/密度公式/EF/mixing 与 solve_sp 完全相同，唯一差别是
+    内层 Poisson 用 PINN warm-start（搭建说明 §35.2）。收敛判据结构相同（δ < tol），
+    但 tol 用更松的 tol_V_pinn：PINN 单解有 ~1e-4 V 噪声地板，1e-6 不可达（见
+    stage9.md）。
+
+    强反型区（Vg ≳ 1.5）必须用电压扫描初值 phi0（上一栅压收敛解）：从零初值的
+    经典解会高估 φ_s（~1.4 V vs 真实 ~1.1 V）并产生 ~1e4·NA 的暂态电子尖峰，
+    tanh MLP 无法表达（训练发散）。这是 PINN 相对 FDM 的一个已知鲁棒性差异，
+    Stage 9 的受控对照统一用电压扫描初值（见 experiments/08_hybrid_sp_pinn.py）。
+
+    即使有电压扫描初值，Anderson 外推仍会在强反型区把 φ_s 超调几十 mV，经 n(φ)
+    指数放大出远超真解的窄瞬态尖峰（实测 49 mV → n_max≈1900·NA），tanh MLP 照样
+    表达不了（NaN 发散）。故 solve_sp_pinn 额外用外层信任域 max_dphi_V_pinn 限制
+    每步 φ 变化，从源头防止超调（见 stage9.md §9.5）。
+    """
+    tol = float(config['solver'].get('tol_V_pinn', 5e-4))
+    max_dphi = config['solver'].get('max_dphi_V_pinn', None)
+    if max_dphi is not None:
+        max_dphi = float(max_dphi)
+    return _solve_sp(device, Vg, config, phi0, _make_pinn_poisson_step,
+                     tol=tol, max_dphi=max_dphi)
+
+
+def _solve_sp(device, Vg, config, phi0, make_step, tol=None, max_dphi=None):
+    """组装完整 Schrödinger–Poisson 自洽循环（Gummel+Anderson），返回 SPResult。
+
+    内层 Poisson 由 make_step(device, EF, params, T, Vg, config) 返回的
+    poisson_step(n, phi) -> phi_new 提供（FDM Newton 或 PINN）。两版共享
+    **完全相同**的网格、材料、Schrödinger、密度公式、EF、mixing 与收敛
+    判据结构（δ < tol），唯一变量是 Poisson 子问题求解器——即 Stage 9 的
+    受控对照（搭建说明 §35.2）。tol 取值因内层求解器而异：FDM 可达 1e-6，
+    PINN 受噪声地板 ~1e-4 限制只能用更松的 tol_V_pinn（见 stage9.md）。
 
     Args:
         device: Device1D（含材料剖面、网格）。
@@ -235,6 +375,13 @@ def solve_sp(device, Vg, config, phi0=None):
         phi0: 初始静电势 [V]（可选）。若为 None，用纯耗尽近似作初值。反型区
             耗尽初值会高估表面势，建议用「电压扫描」以上一栅压的收敛解作为
             phi0（见 experiments/06_sp_baseline.py 的 Vg 扫描）。
+        make_step: 内层 Poisson 求解器工厂，签名 (device, EF, params, T, Vg,
+            config) -> poisson_step(n, phi) -> phi_new。
+        tol: 收敛阈值 [V]（默认 None → 读 config['solver']['tol_V']）。PINN
+            循环由 solve_sp_pinn 传入更松的 tol_V_pinn（噪声地板 ~1e-4）。
+        max_dphi: 外层信任域——每步 φ 变化上限 [V]（默认 None 不限制）。仅 PINN
+            循环由 solve_sp_pinn 传入，防止 Anderson 超调产生 tanh MLP 表达不了
+            的窄瞬态电子尖峰（见 stage9.md）；FDM 内层对任意 n 稳定，保持 None。
 
     Returns:
         SPResult。
@@ -242,11 +389,14 @@ def solve_sp(device, Vg, config, phi0=None):
     params = device.params
     T = float(config['thermal']['T_K'])
     num_states = int(config['solver']['num_states'])
-    tol = float(config['solver']['tol_V'])
+    tol = float(config['solver']['tol_V']) if tol is None else float(tol)
     max_iter = int(config['solver']['max_iter'])
 
     # 费米能级（相对 E_i，bulk 电中性，Stage 6）
     EF = find_fermi_level(params.n_i, params.NA, T).EF
+
+    # 内层 Poisson 求解器（FDM Newton 或 PINN warm-start）
+    poisson_step = make_step(device, EF, params, T, Vg, config)
 
     # 初值：纯耗尽 ρ = -q NA（Si），解一次线性 Poisson
     if phi0 is None:
@@ -285,7 +435,7 @@ def solve_sp(device, Vg, config, phi0=None):
         # 非线性 Poisson 得到 G(φ)，残差 r = G(φ) - φ 度量自洽程度。
         n, p, energies_list, psi_list, Ns_total, Ns_per_ladder = compute_carriers(
             device, phi, EF, params, T, num_states)
-        phi_newton = solve_poisson_nonlinear(device, n, EF, params, T, Vg, phi)
+        phi_newton = poisson_step(n, phi)
         r = phi_newton - phi
         delta = float(np.max(np.abs(r)))
         history.append(delta)
@@ -312,6 +462,14 @@ def solve_sp(device, Vg, config, phi0=None):
             for j in range(n_hist - 1):
                 phi = phi + gamma[j] * (
                     (x_hist[j] - x_hist[-1]) + alpha * (r_hist[j] - r_hist[-1]))
+        # 信任域（仅 PINN 用，max_dphi 非 None）：把 Anderson 外推后的步长限制在
+        # ±max_dphi，防止强反型区 φ_s 超调 → n(φ) 指数放大出 tanh MLP 表达不了的
+        # 窄瞬态尖峰（实测 49 mV 超调 → n_max≈1900·NA → NaN 发散）。FDM 内层
+        # Newton 对任意 n 无条件稳定，max_dphi=None 不启用。
+        if max_dphi is not None:
+            dphi = phi - x_hist[-1]
+            dphi = np.clip(dphi, -max_dphi, max_dphi)
+            phi = x_hist[-1] + dphi
         phi = np.clip(phi, phi_min, phi_max)
 
     # 以最终 φ 重算各量，保证输出自洽
