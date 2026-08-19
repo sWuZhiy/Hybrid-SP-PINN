@@ -208,6 +208,6 @@ RQ 映射：
 
 - 上游：读 [stage8.md](stage8.md) §8.6（单模块对照）、[stage9.md](stage9.md)（SP 对照）、
   [stage10.md](stage10.md)（训练策略）的落盘 CSV；
-- 下游：给 [stage12.md](stage12.md)（参数化 PINN）提供「多栅压总成本」基线（RQ4 的
-  训练成本，是参数化 PINN 要对比的对手）；
+- 下游：给 [stage12.md](stage12.md)（有监督参数化神经代理）提供「多栅压总成本」基线
+  （RQ4 的训练成本，是 surrogate 要对比的对手）；
 - 论文：§11.7 汇总表 + RQ1–RQ4 映射直接支撑论文第 5 章（结果）与第 6 章（讨论）。

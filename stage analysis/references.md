@@ -52,6 +52,13 @@
 17. **A. K. Sarma, S. Roy, C. Annavarapu, P. Roy, S. Jagannathan**, *Interface PINNs (I-PINNs): A physics-informed neural networks framework for interface problems*, Comput. Methods Appl. Mech. Eng. 429, 117135 (2024). DOI: 10.1016/j.cma.2024.117135
     — 针对不连续系数/界面跳变问题的 PINN 框架：子域网络参数共享，1D–3D 椭圆界面问题精度比标准 PINN/XPINN 高约两个数量级——本项目界面处理方案的引证。
 
+### A.5 神经网络通用函数逼近（surrogate 代理模型基础，Stage 12）
+
+18. **G. Cybenko**, *Approximation by superpositions of a sigmoidal function*, Math. Control Signals Systems 2(4), 303–314 (1989). DOI: 10.1007/BF02551274
+    — 通用逼近定理：单隐层 sigmoid 网络可任意精度逼近紧集上的连续函数。Stage 12 有监督参数化神经代理（surrogate）「网络能拟合 φ(z,Vg) 插值映射」的理论依据（数据驱动，非物理信息）。
+19. **K. Hornik**, *Approximation capabilities of multilayer feedforward networks*, Neural Networks 4(2), 251–257 (1991). DOI: 10.1016/0893-6080(91)90009-T
+    — 多层前馈网络通用逼近能力的独立奠基工作（不限于 sigmoid 激活），与 Cybenko 1989 并列，支撑 surrogate 逼近性论证。
+
 ## B. 半导体器件物理（Stage 1–7）
 
 1. **F. Stern, W. E. Howard**, *Properties of Semiconductor Surface Inversion Layers in the Electric Quantum Limit*, Phys. Rev. 163(3), 816–835 (1967). DOI: 10.1103/PhysRev.163.816
@@ -114,7 +121,7 @@
 | Hybrid SP-PINN | 9 | Stern & Howard 1967、Raissi 2019、Grossmann 2024 |
 | PINN 训练策略（from-scratch vs fine-tune） | 10 | Bengio 2009、Kingma & Ba 2015 |
 | 严格对比实验 | 11 | Grossmann 2024、Savović 2023 |
-| 参数化 PINN | 12 | Karniadakis 2021、Riganti 2025（DDNet）、Cai 2024（DAC） |
+| 有监督参数化神经代理（surrogate） | 12 | Karniadakis 2021（综述/surrogate 方向）；Cybenko 1989（条目 18）、Hornik 1991（条目 19，通用逼近）。**注意**：DDNet/DAC 是泊松-漂移扩散（纯 PDE），**不**支撑本阶段「跳过 SP 自洽」路线，仅归位 §1.2/§5 立意 |
 
 ## E. 论文各章节建议引用位置（写论文时逐章取用）
 
@@ -140,6 +147,6 @@
 | §3.5 量子 PINN 相关参照 | A9 Holliday 2023（本征值作可训练参数）；A10 Brevi 2024（PINN 量子谱教程）；A11 Mills 2017 |
 | §4 实验环境与实现 | C8 LAPACK 1990（eigh_tridiagonal/solve_banded 底层）；C9 Kelley 2003；A6 Kingma & Ba 2015（PyTorch Adam） |
 | §4 结果对比与讨论 | A14 Grossmann 2024、A15 Savović 2023（对照论证）；A12/A13/A8（与已发表半导体 PINN 工作比较）；B1 Stern & Howard 1967（物理基准） |
-| §5 总结与展望 | A4 Karniadakis 2021（PINN 局限与前景）；A12 Riganti 2025（参数化/替代 TCAD 方向） |
+| §5 总结与展望 | A4 Karniadakis 2021（PINN 局限与前景）；A12 Riganti 2025（参数化/替代 TCAD 方向）；A18 Cybenko 1989、A19 Hornik 1991（surrogate 通用逼近基础） |
 
 **格式提示**：论文 docx 中可把 A/B/C 合并为一个按引用顺序编号的参考文献表；从本文档复制条目时保留 DOI（Word 中插入为超链接可点击验证）。

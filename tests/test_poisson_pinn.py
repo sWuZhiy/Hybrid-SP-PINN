@@ -1,6 +1,6 @@
 """poisson_pinn 的单元测试（Stage 8：Poisson-PINN 独立求解器）。
 
-覆盖项目搭建说明 §34 / 方案B §4.3 的验证问题：
+覆盖项目搭建说明 §34 的验证问题：
   1. 平带（Vg=0）：PINN 保持 φ≈0（唯一物理解）；
   2. drop-in 验证（经典非线性 Poisson，n=0）：PINN vs FDM Newton 解的
      最大偏差在容差内——同一方程、同一边界、同一 n 冻结下的严格对照；

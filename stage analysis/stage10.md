@@ -117,6 +117,6 @@ FDM 收敛电子密度），只测内层映射的确定性：
 - 上游：[stage9.md](stage9.md) §9.4.3（G 静态要求）、§9.5（信任域）；
   [stage8.md](stage8.md) §8.7C（warm_start/seed 铺路、φ 预拟合初值备选）。
 - 下游：Stage 11 严格对比矩阵中「PINN 训练策略」一维以本阶段结论为准；
-  Stage 12 参数化 PINN 的增量训练同理。
+  Stage 12 有监督参数化神经代理的增量训练同理。
 
 **关键文献**：[references.md](references.md) §A（Bengio 2009 课程学习；Kingma & Ba 2015 Adam）。
