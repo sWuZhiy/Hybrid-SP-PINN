@@ -105,12 +105,19 @@ FDM 收敛电子密度），只测内层映射的确定性：
 - [ ] `experiments/09_training_strategy.py`：Vg ∈ {0.5, 1.0, 1.5, 2.0} × {A, B}
   ×（A 组 3 seed），捕获 RuntimeError 记为中止；输出 metrics CSV + 面板图。
 
-## 10.7 输出产物规划
+## 10.7 输出产物（实际落盘）
 
-- `results/figures/training_strategy_metrics.csv`：Vg、strategy、seed、converged、
-  abort_iter、iters、G_drift_mV、phi_s_err_mV、rel_l2_pct；
-- `results/figures/training_strategy_*.png/pdf`：A/B 收敛历史对照、G 漂移 vs
-  scf_epochs 曲线、A 组 seed 散布箱线图。
+- `results/figures/training_strategy_sp.csv`：全 SP 循环 16 行（Vg、strategy、seed、
+  aborted、abort_msg、converged、stagnated、iters、phi_s_err_mV、max_err_mV、
+  rel_l2_pct、Ns_err_pct）；
+- `results/figures/training_strategy_gdrift_a.csv`：G 漂移 A 组 4 行（Vg、
+  A_phi_s_std_mV、A_phi_s_range_mV、A_phi_s_per_seed_mV）；
+- `results/figures/training_strategy_gdrift_b.csv`：G 漂移 B 组 16 行（Vg、scf_epochs、
+  phi_s_mV、dev_from_3000_mV）；
+- `results/figures/training_strategy_sp_iters.png/pdf`：fine_tune vs from_scratch 收敛
+  轮数对照 + from_scratch 中止点；
+- `results/figures/training_strategy_gdrift.png/pdf`：G 漂移解耦面板（A 组 seed 散布 +
+  B 组 scf_epochs 轮数扫描）。
 
 ## 10.8 衔接
 
@@ -120,3 +127,73 @@ FDM 收敛电子密度），只测内层映射的确定性：
   Stage 12 有监督参数化神经代理的增量训练同理。
 
 **关键文献**：[references.md](references.md) §A（Bengio 2009 课程学习；Kingma & Ba 2015 Adam）。
+
+## 10.9 实验结果（2026-08-19 回填）
+
+运行 `python experiments/09_training_strategy.py`（全量）与 `--part gdrift`（G 漂移
+独立快验），产物见 §10.7。以下数字均来自落盘 CSV。
+
+### 10.9.1 全 SP 循环对照（16 行）
+
+| Vg | strategy | seed | 结果 | iters | φ_s err (mV) | max\|Δφ\| (mV) | rel-L2 (%) | Ns err (%) |
+|----|----------|------|------|-------|---------------|----------------|------------|-----------|
+| 0.5 | fine_tune | — | 收敛 | 1 | 0.000 | 0.000 | 0.000 | 0.000 |
+| 0.5 | from_scratch | 0 / 1 / 2 | 收敛 ×3 | 1 / 1 / 3 | 0.000 / 0.000 / −0.237 | 0.000 / 0.000 / 0.458 | 0.000 / 0.000 / 0.179 | 0.000 / 0.000 / −0.945 |
+| 1.0 | fine_tune | — | 收敛 | 31 | −0.465 | 0.465 | 0.0347 | −1.485 |
+| 1.0 | from_scratch | 0 / 1 / 2 | 收敛 ×3 | 30 / 28 / 29 | −0.522 / −0.308 / −0.587 | 0.522 / 0.496 / 0.587 | 0.0716 / 0.0668 / 0.0870 | −1.798 / −1.228 / −2.009 |
+| 1.5 | fine_tune | — | 收敛 | 51 | −0.459 | 0.772 | 0.0281 | −0.422 |
+| 1.5 | from_scratch | 0 / 1 / 2 | **中止 ×3** | — | — | — | — | — |
+| 2.0 | fine_tune | — | 收敛 | 87 | −0.260 | 2.116 | 0.0441 | −0.207 |
+| 2.0 | from_scratch | 0 / 1 / 2 | **中止 ×3** | — | — | — | — | — |
+
+from_scratch 中止详情（`_check_physical` 界面电位移连续残差超限，φ_s 落到伪不动点）：
+
+| Vg | seed | \|R_iface\|/D_ref | φ_s (mV) |
+|----|------|------------------|----------|
+| 1.5 | 0 / 1 / 2 | 0.154 / 0.167 / 0.162 | 858.6 / 832.7 / 864.2 |
+| 2.0 | 0 / 1 / 2 | 0.114 / 0.217 / 0.102 | 1721.7 / 1339.2 / 1770.2 |
+
+**结论**：fine_tune（Stage 9 默认）在 0.5→2.0 V 全部收敛，φ_s 误差 ≤0.47 mV、
+max|Δφ|≤2.12 mV、rel-L2≤0.044%。from_scratch 在弱/近反型（Vg≤1.0）能收敛（误差与
+fine_tune 同量级），但在强反型（Vg≥1.5）三个 seed **全部**漂到伪不动点（φ_s 显著偏离
+物理解，界面 D 连续残差超限）被中止——**中止本身即结论**：from_scratch 的 G 漂移在
+强反型把外层固定点迭代推向非物理解，warm-start 的 G 钉住是把 Hybrid 循环在强反型区
+救回来的**必要条件**（回答问题 1、2）。注意 fine_tune 墙钟更长（31–87 轮 × 3000 epochs，
+Vg=2.0 达 3315 s），from_scratch「看似快」只是因为它中止而非收敛——本阶段定性是
+消融而非速度对比。
+
+### 10.9.2 G 漂移解耦测量
+
+**A 组（固定 n=n_FDM，3 seed 各训满 3000 轮，φ_s 跨 seed 散布）**：
+
+| Vg | std (mV) | range (mV) | per-seed φ_s (mV) |
+|----|----------|-----------|-------------------|
+| 0.5 | 0.045 | 0.100 | [432.19, 432.09, 432.18] |
+| 1.0 | 0.123 | 0.298 | [893.08, 892.89, 892.78] |
+| 1.5 | 6.159 | 13.27 | [1075.86, 1089.13, 1076.29] |
+| 2.0 | 158.07 | 338.07 | [1181.42, 1519.49, 1187.01] |
+
+**B 组（固定 n，seed=0，φ_s 相对 3000 轮参考的偏差 dev_from_3000_mV）**：
+
+| Vg | scf=500 | scf=1000 | scf=2000 | scf=3000 |
+|----|---------|----------|----------|----------|
+| 0.5 | −1.61 | −0.11 | +0.43 | 0 |
+| 1.0 | −154.4 | −13.1 | −0.19 | 0 |
+| 1.5 | −522.6 | −183.3 | +0.50 | 0 |
+| 2.0 | −964.2 | −503.0 | −109.4 | 0 |
+
+**结论**：
+
+- A 组弱/近反型（Vg≤1.0）φ_s 跨 seed 散布 <0.3 mV（G 近似静态）；强反型（Vg≥1.5）
+  散布急剧增大，Vg=2.0 时 seed=1 漂到 1519 mV（偏离物理解 ~338 mV）。这直接量化了
+  from-scratch 的 init 依赖（G 漂移）在强反型不可忽略 → fine_tune 的收益在于
+  「压低 G 漂移」而非省训练步（问题 2 答案）。
+- B 组 scf_epochs 不足时 φ_s 严重偏低（Vg=2.0：500 轮偏 −964 mV、1000 轮 −503 mV），
+  直到 ≥2000 轮才进入 0.5 mV 容差。故 **scf_epochs=3000 是 G 静态的必要轮数，不能
+  安全下调**（问题 3 答案：否；500/1000 轮根本训不到反型，正复现 Stage 9 伪不动点前兆）。
+
+### 10.9.3 三问结论
+
+1. **from-scratch 在 SP 循环里是否可行？** 否——强反型（Vg≥1.5）全 seed 伪不动点中止。
+2. **fine-tune 的真正收益？** 跨轮 G 钉住（压低 G 漂移），非省训练步——A 组散布证明。
+3. **scf_epochs 能否安全下调？** 否——500/1000 轮训不到反型，3000 轮是必要精度。

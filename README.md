@@ -70,6 +70,6 @@ python tests/test_sp_pinn.py
 - [x] Stage 7：完整 FDM SP baseline
 - [x] Stage 8：Poisson-PINN 独立求解器
 - [x] Stage 9：Hybrid SP-PINN
-- [ ] Stage 10：PINN 训练策略
+- [x] Stage 10：PINN 训练策略
 - [ ] Stage 11：严格对比实验
 - [ ] Stage 12：有监督参数化神经代理（可选/展望）
