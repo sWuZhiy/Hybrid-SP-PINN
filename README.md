@@ -41,9 +41,10 @@ python tests/test_fermi_level.py
 python tests/test_sp_solver.py
 python tests/test_poisson_pinn.py
 python tests/test_sp_pinn.py
+python tests/test_metrics.py
 ```
 
-全量（68 项，约 7 分钟）：`python -m pytest tests/ -q`
+全量（72 项，约 7 分钟）：`python -m pytest tests/ -q`
 
 ## 物理模型
 
@@ -71,5 +72,5 @@ python tests/test_sp_pinn.py
 - [x] Stage 8：Poisson-PINN 独立求解器
 - [x] Stage 9：Hybrid SP-PINN
 - [x] Stage 10：PINN 训练策略
-- [ ] Stage 11：严格对比实验
+- [x] Stage 11：严格对比实验
 - [ ] Stage 12：有监督参数化神经代理（可选/展望）

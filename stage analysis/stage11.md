@@ -39,50 +39,69 @@
 **为什么必须算**：§40 的 RQ3 问「PINN 的误差是否会通过自洽反馈放大到 n、Eᵢ、Ns」。
 现在只算了 φ 误差和 Ns 误差（且 Ns 误差 08 只打印、不落库），**子带能级差从未算过**。
 
-**第一性原理（为什么 E₁ 比 Ns 更敏感）**：
+**第一性原理（φ 误差如何传播到 E₁ 与 Ns）**：
 
-- 量子限域下基态能级 E₁ 由势阱形状直接决定，一阶近似 E₁ ≈ q·⟨φ⟩_阱（电子概率密度
-  加权平均的静电势）。φ 差 δφ ~ 0.5 mV → E₁ 差 δE₁ ~ q·δφ ~ 0.5 meV。而 E₁ 本身
-  ~ 百 meV 量级，**相对误差可达 ~0.5%**。
-- Ns 是 n(z) 的空间积分：Ns = Σᵢ ∫ |ψᵢ|² f(Eᵢ) dz。逐点的 φ 误差在积分里被平滑，
-  且占据函数 f(Eᵢ) 在 Eᵢ ≫ EF 时指数抑制、Eᵢ ≈ EF 时对 δEᵢ 只敏感于 f 的斜率（~1/kT）。
-  故 Ns 对 φ 误差**相对钝感**。
+- E₁：量子限域下基态能级由势阱形状决定，一阶近似 E₁ ≈ q·⟨φ⟩_阱（电子概率密度加权
+  平均的静电势），故 δE₁ ≈ q·δφ（**线性**传播）。但 E₁ 绝对值大（~300–430 meV），
+  **相对误差反而小**（实测 0.02%–0.15%，见 §11.7）。
+- Ns：Ns = Σᵢ ∫ |ψᵢ|² f(Eᵢ) dz。在**亚阈值区**（Vg 接近反型开启）Ns ∝ e^{qφ_s/kT}
+  **指数敏感**，δφ_s ~ 0.5 mV → δNs/Ns ~ q·δφ_s/kT ~ 1.8%（放大 ~3.9%/mV）；强反型区
+  表面势钉扎，指数敏感被抑制，δNs/Ns 降到 0.2%–0.4%。
 
-结论（这是论文 RQ3 的看点）：**φ 误差小、但 E₁ 相对放大、Ns 相对钝感**——这个不对称
-必须用 E₁ 差来展示，否则 RQ3 只答了一半。
+结论（论文 RQ3 的看点，**已用实测修正**）：φ 误差对 Ns 的传播在亚阈值区被**指数放大**
+（Vg=1.0 时 Ns 相对误差 1.5%，远大于 E₁ 相对误差 0.15%），对 E₁ 只是**线性**传播且被
+大绝对值稀释。因此「最敏感的可观测量」是**亚阈值区的 Ns**，不是 E₁——这与最初
+「E₁ 相对放大、Ns 相对钝感」的猜想**相反**，实测见 §11.7。
 
 **实现**：`SPResult.subband_energies` 已存最终 φ 下两组能谷的本征能。取第一能谷组基态
 `E₁ = res.subband_energies[0][0]`（该组 m_z = m_l 更重 → 基态更低），
 `E1_err = E₁_pinn − E₁_fdm`（单位 meV）。
 
-### P2. charge neutrality error —— 不依赖 FDM 参考的独立自洽校验
+### P2. Robin 残差（界面电位移连续）—— 不依赖 FDM 参考的独立自洽校验
 
-**为什么必须算**：§16 要求；它回答「PINN 的软 Robin 到底收敛到多接近电中性」，
-而不是「相对 FDM 看起来对」。FDM 的 Robin 是硬边界（恒成立 ~0），PINN 是软损失
-（残差 ~0.004），这个对比本身就是一条独立结论。
+**为什么必须算**：§16 要求；它回答「PINN 的软 Robin 到底收敛到多接近电位移连续」，
+而不是「相对 FDM 看起来对」。FDM 的 Robin 是硬边界（通量形式离散自动满足），PINN 是
+软损失（训练后残存残差），这个对比本身就是一条独立结论。
 
-**第一性原理（Gauss 定理推导）**：
+**第一性原理（界面 Gauss 定理 / 电位移法向分量连续）**：
 
-Poisson 方程 ∇·(ε∇φ) = −ρ，ρ = q(p − n − N_A)。从界面 z = t_ox 积分到体区 z = L
-（体区电场 E(L) = 0）：
-
-```
-ε_si · E_si(t_ox) = ∫_{t_ox}^{L} ρ dz   （= Q_si，半导体单位面积电荷）
-```
-
-栅电荷 Q_g = ε_ox · E_ox = ε_ox(Vg − φ_s)/t_ox。电中性要求 Q_g + Q_si = 0，即
+在 SiO₂/Si 界面 z=t_ox 两侧无界面面电荷时，电位移法向分量连续：
 
 ```
-ε_si · E_si(t_ox) − ∫_{t_ox}^{L} ρ dz = 0
+ε_ox·E_ox = ε_si·E_si(t_ox)
 ```
 
-**这正是界面 Robin（电位移连续 ε_si φ'_si = ε_ox(Vg−φ_s)/t_ox）的另一种写法**。因此：
+氧化层内 φ 线性（无空间电荷），E_ox = (Vg − φ_s)/t_ox；Si 侧 E_si = −φ'_si。故 Robin
+条件（电位移连续）等价于
 
-- 对 FDM：Robin 是硬 BC，此量 ~0（仅剩离散 O(dz) 误差）；
-- 对 PINN：Robin 是软损失，此量 = 训练后残存的 Robin 残差（~0.004）。
+```
+R_iface = ε_si·φ'_si(t_ox) + ε_ox(Vg − φ_s)/t_ox = 0
+```
 
-**定义**：`charge_neutrality_err = |ε_si E_si(t_ox) − ∫ρ dz| / max(|Q_g|, |Q_si|, 1)`，
-分别对 FDM 解和 PINN 解各算一个，再报告两者的量级差。
+**定义**：`robin_residual = |R_iface| / D_ref`，`D_ref = ε_ox·max(|Vg|, 0.1)/t_ox`
+（与 `sp_solver._check_physical` 的中止判据 `|R_iface|/D_ref > 0.1` 完全一致），分别对
+FDM 解和 PINN 解各算一个再对比。
+
+**为什么不是「全局电中性 Q_g + Q_si = 0」（原稿笔误，已修正）**：
+
+把 Poisson 方程 d(εE)/dz = ρ 从 t_ox 积分到 L 得
+
+```
+ε(L)E(L) − ε_si·E_si(t_ox) = ∫_{t_ox}^L ρ dz = Q_si
+```
+
+再代入 R_iface 的定义消去 ε_si·E_si，得 `Q_g + Q_si = R_iface + ε(L)E(L)`。
+「电中性 Q_g+Q_si=0」隐含体区电场 E(L)=0；但本器件（t_ox=2nm, L_si=100nm,
+NA=1e17）在强反型（Vg≥1.5）时耗尽区 ~102nm ≈ L_si，Si 被完全耗尽，E(L)≠0
+（实测 ε_si·E(L)≈3.1e-4 C/m² ≈ Q_g 的 4.7%），故 Q_g+Q_si 测到的是背面电场而非
+Robin 残差，且 FDM/PINN 一样大、区分不出软/硬 Robin。局部 Robin 残差 R_iface
+不依赖 E(L)，才是干净的口径。原稿把「ε_si E_si − ∫ρ dz」与「Q_g+Q_si」混作 Robin，
+均不成立，已统一修正为上面的 R_iface 定义。
+
+**预期（诚实写，实测见 §11.7）**：FDM 用前向差分求 φ' 仍有 O(dz) 误差（反型层界面
+φ'' 大），实测 ~1e-3（D_ref 归一化）；PINN 软损失训练后残存 ~2e-3，与 FDM 的前向差分
+离散误差同量级（~2 倍，**不是**「2 个数量级」）。这本身是论文结论：软 Robin 收敛精度
+受界面离散/表达力共同限制，与前向差分离散误差同量级。
 
 ### P3. failure rate —— 数值稳定性（定义 + 多 seed 统计）
 
@@ -122,7 +141,7 @@ Poisson 方程 ∇·(ε∇φ) = −ρ，ρ = q(p − n − N_A)。从界面 z = 
 | rel-L2 归一化 | 07/08/09 各写一遍 | 统一 `‖φ_pinn − φ_fdm‖₂ / ‖φ_fdm‖₂`（分母一致） |
 | Ns 相对误差 | 08 只打印、09 落库 | 统一 `(Ns_p − Ns_f)/Ns_f` |
 | E₁ 差 | 没算 | 统一 `E₁_pinn − E₁_fdm`（meV） |
-| charge neutrality | 没算 | 统一 §11.3 P2 定义 |
+| Robin 残差 | 没算 | 统一 §11.3 P2 定义 |
 | 单位 | mV 与 V 混用 | 内部 V，报告层统一 mV（φ）/ meV（E₁）/ 无量纲（rel-L2、Ns 相对差） |
 
 产出 `src/metrics.py`：一个 docstring 写清每个指标的定义、域、归一化、单位，07/08/09/11
@@ -171,7 +190,7 @@ Stage 11 的最终产物是一张表，把 §39 字段 × 全部实验整理齐�
 | Ns_relative_error | 08/09 | 补口径统一 |
 | E1_error | **新算** | P1 |
 | EF_error | — | 平凡为 0，**从表中删除**（见下） |
-| charge_neutrality_error | **新算** | P2 |
+| robin_residual | **新算** | P2 |
 | scf_iterations / convergence curve | 08 | ✅ 引用 |
 | failure_rate | **新算** | P3 |
 | training_time / wall_clock_time | 08/09 | ✅ 引用 |
@@ -191,18 +210,21 @@ RQ 映射：
 ## 11.8 代码改动清单
 
 1. `src/metrics.py`（新）：`compute_metrics(res_f, res_p, device)` 统一算 §11.4 全部指标
-   （含 E₁ 差、charge neutrality、inference time），docstring 写清定义/域/归一化/单位；
+   （含 E₁ 差、Robin 残差、inference time）、`subband_ground_state`、`robin_residual`
+   （P2 口径修正，docstring 写清定义/域/归一化/单位）；
 2. `experiments/10_rigorous_comparison.py`（新）：粗/细网格实验（§11.5 方案 A）+ failure
-   rate 多 seed 统计（§11.3 P3）+ 汇总表生成（§11.7）；
-3. `src/sp_solver.py`：若方案 B（独立 Poisson 配点）做，需改配点来源——**本阶段不做**；
-4. 不重跑 07/08/09，只读其 CSV。
+   rate 多 seed 统计（§11.3 P3）+ 汇总表生成（§11.7）+ 训练/推理计时（§11.3 P4）；
+3. `tests/test_metrics.py`（新）：4 项单测覆盖 subband_ground_state / robin_residual
+   （物理正确性 + 口径自洽）/ compute_metrics 自洽；
+4. `src/sp_solver.py`：若方案 B（独立 Poisson 配点）做，需改配点来源——**本阶段不做**；
+5. 不重跑 07/08/09，只读其 CSV。
 
 ## 11.9 产物规划
 
-- `results/figures/grid_convergence_*.csv/png/pdf`：粗/细网格误差曲线（FDM vs PINN）；
-- `results/figures/failure_rate_*.csv`：三类失败计数；
-- `results/figures/summary_table.csv`：§11.7 汇总表（论文直接引用）；
-- `results/figures/training_vs_inference_time.*`：效率对比图。
+- `results/figures/summary_table.csv/png/pdf`：§11.7 汇总表（论文直接引用）；
+- `results/figures/grid_convergence.csv/png/pdf`：粗/细网格误差曲线（FDM vs PINN，方案 A）；
+- `results/figures/failure_rate.csv`（三类失败计数汇总）+ `failure_rate_detail.csv`（逐 seed 明细）；
+- `results/figures/training_vs_inference_time.csv/png/pdf`：训练 vs 推理效率对比。
 
 ## 11.10 衔接
 
@@ -211,3 +233,107 @@ RQ 映射：
 - 下游：给 [stage12.md](stage12.md)（有监督参数化神经代理）提供「多栅压总成本」基线
   （RQ4 的训练成本，是 surrogate 要对比的对手）；
 - 论文：§11.7 汇总表 + RQ1–RQ4 映射直接支撑论文第 5 章（结果）与第 6 章（讨论）。
+
+## 11.11 实测结果（summary + inference；grid 见 §11.12、failure 见 §11.13）
+
+统一口径汇总表（`results/figures/summary_table.csv`，`--part summary` 生成）：
+
+| Vg [V] | φ_s 差 [mV] | max\|Δφ\|(Si) [mV] | rel-L2(Si) [%] | Ns 差 [%] | E₁ 差 [meV] | Robin FDM | Robin PINN |
+|---|---|---|---|---|---|---|---|
+| 0.5 | 0.000 | 0.000 | 0.0000 | 0.000 | 0.000 | 7.29e-4 | 7.29e-4 |
+| 1.0 | −0.465 | 0.465 | 0.0363 | −1.485 | +0.413 | 5.20e-4 | 1.12e-3 |
+| 1.5 | −0.459 | 0.459 | 0.0268 | −0.422 | +0.191 | 1.18e-3 | 1.89e-3 |
+| 2.0 | −0.260 | 0.260 | 0.0312 | −0.207 | +0.095 | 1.68e-3 | 2.23e-3 |
+
+三条独立结论（RQ1/RQ3/P2）：
+
+1. **φ 误差**：Vg≤1.5 时 max|Δφ|(Si)<0.5 mV、rel-L2<0.04%，深反型 Vg=2.0 仍 <0.3 mV
+   （Si 区）——Hybrid 复现 FDM 自洽解（RQ1 完整闭环）。
+2. **P1（E₁ vs Ns 的传播不对称，已修正原猜想）**：Ns 相对误差在亚阈值区 Vg=1.0 达
+   **−1.485%**（指数敏感 q·δφ_s/kT≈1.8%），强反型降到 −0.2%；而 E₁ 相对误差全程
+   仅 0.02%–0.15%（线性传播 + 大绝对值稀释）。故**最敏感可观测量是亚阈值区的 Ns**，
+   不是 E₁（原 §11.3 P1 的「E₁ 放大、Ns 钝感」猜想被实测**反转**）。
+3. **P2（Robin 残差，硬 vs 软）**：FDM 前向差分 Robin 残差 ~5e-4–1.7e-3（反型层界面
+   O(dz) 离散误差），PINN 软损失残存 ~7e-4–2.2e-3，二者**同量级、相差 ~1.3–2 倍**，
+   不是原稿「2 个数量级」。结论：软 Robin 收敛精度受界面离散/表达力共同限制。
+
+推理时间（`training_vs_inference_time.csv`，`--part inference`）：单次 Poisson 两阶段
+训练 **39.16 s**，单次 `predict_full` 推理 **1.16 ms**，加速 **~3.39×10⁴ 倍**（RQ4）。
+
+## 11.12 实测结果（grid；failure 见 §11.13）
+
+粗/细网格收敛（方案 A 整链，Vg=1.5，参考 = FDM@2000；`grid_convergence.csv`）：
+
+| n_grid | dz [nm] | φ_s 差 FDM [mV] | φ_s 差 PINN [mV] | Ns 差 FDM [%] | Ns 差 PINN [%] |
+|---|---|---|---|---|---|
+| 250 | 0.410 | 4.939 | 0.364 | 6.114 | 0.593 |
+| 500 | 0.204 | 2.208 | 0.128 | 2.498 | 0.395 |
+| 1000 | 0.102 | 0.751 | 0.497 | 0.813 | 0.424 |
+| 2000 | 0.051 | 0（参考） | 0.471 | 0（参考） | 0.530 |
+
+结论（RQ 网格无关性，§11.5 预期兑现）：
+
+1. **FDM 单调收敛**：φ_s 差 4.94 → 2.21 → 0.75 → 0 mV、Ns 差 6.11% → 2.50% → 0.81% → 0，
+   随网格加密单调下降（每加密一倍误差降 ~2–3 倍，介于 O(dz)–O(dz²) 之间，与 Stage 3/4
+   在光滑问题上验证的二阶量级一致，反型层界面离散使 φ_s 的收敛略慢于理想二阶）。
+2. **PINN 停在表达力地板**：φ_s 差在 0.13–0.50 mV、Ns 差在 0.40–0.59% 之间非单调波动，
+   不随网格加密收敛到 0。PINN 的 φ_s 收敛到 ~1079.36 mV 的自有固定点，比 FDM@2000 的
+   1078.886 mV 高 ~0.47 mV——这是**不可约的表达力偏置**（光滑网络 + 软 Robin 的逼近下限），
+   不是网格误差。
+3. 因此论文结论须写成「PINN 的网格无关性**受表达力上限约束**」（实测地板 ~0.5 mV，
+   比 §11.5 预估值 ~0.1 mV 略高），不能写成「PINN 天然网格无关」。
+
+## 11.13 实测结果（failure rate）
+
+from_scratch 在强反型的失败率（Vg ∈ {1.5, 2.0}，各 N=8 seed，复用 Stage 10 的 seed 0/1/2 +
+本阶段补跑 seed 3–7；`failure_rate.csv` / `failure_rate_detail.csv`）：
+
+| Vg | N_seeds | converged | divergence | pseudo_fixed_point | stagnation | failure_rate |
+|---|---|---|---|---|---|---|
+| 1.5 | 8 | 0 | 0 | 8 | 0 | 1.0 |
+| 2.0 | 8 | 0 | 0 | 8 | 0 | 1.0 |
+
+结论：
+
+1. **失败率 100%**：16/16 个 seed 全部失败，0 收敛。失败模式**统一为伪不动点**
+   （`pseudo_fixed_point`），无 `divergence`（NaN/Inf）、无 `stagnation`——即 from_scratch
+   在强反型下**从不真正发散**，而是稳定地停在错误的不动点。
+2. **中止判据正是 Robin 残差**：`_check_physical` 检测到界面电位移不连续
+   `|R_iface|/D_ref = 0.102–0.422 > 0.1`（应为 0）才中止。这反过来验证 §11.3 的 P2 口径修正：
+   Robin 残差是区分「真不动点（FDM 硬 Robin ~1e-3、PINN 软损失 ~2e-3）vs 伪不动点
+   （~0.1–0.4）」的天然判据，二者量级差约两个数量级。
+3. **伪不动点 seed 相关**：φ_s 卡在 375–1770 mV 的散乱值（真值 Vg=1.5 时 ~1080 mV、
+   Vg=2.0 时 ~1182 mV），随随机初始化落到不同的伪不动点——说明 from_scratch 的损失地形在
+   强反型下存在大量局部极小，且都破坏界面电位移连续性。
+4. **与 Stage 10 结论一致并量化**：Stage 10 定性发现「from_scratch 强反型不可靠」，本阶段
+   把「不可靠」量化为**确定性 100% 失败**，且把失败机制锁定到「伪不动点 + Robin 不连续」，
+   从而严格证明论文结论「混合 PINN 强反型必须 warm-start（fine_tune）」的必要性。
+
+## 11.14 阶段小结（Stage 11 汇总补齐）
+
+本阶段把 Stage 7–10 遗留的「缺口指标 + 统一口径 + 粗细网格 + 训练失败率 + 推理成本」
+一次补齐，落地为 4 个可复现实验与 5 条论文级结论：
+
+- **补齐指标**：新增 `subband_ground_state`（由 φ 重解 Schrödinger 得 E₁，不重跑 SP）
+  与 `robin_residual`（P2 口径修正，见 §11.3），两条均由 `tests/test_metrics.py` 校验。
+- **统一口径**：Si 区 max/MAE/rel-L2 由 φ 剖面直接算（与 Stage 9 只报全局一致），
+  `compute_metrics` 自洽性由测试 4 保证（同一解相减恒 0）。
+
+五条结论（映射 §11.7 的 RQ1–RQ4）：
+
+1. **RQ1（复现）**：Hybrid 在 Vg≤2.0 全量程复现 FDM 自洽解——max|Δφ|(Si)<0.5 mV、
+   rel-L2<0.04%（§11.11）。
+2. **P1（敏感量，反转原猜想）**：最敏感可观测量是**亚阈值 Ns**（Vg=1.0 时 −1.485%，
+   指数敏感），不是 E₁（线性 + 大绝对值稀释，0.02%–0.15%）。
+3. **P2（Robin 硬/软，修正原稿「2 个数量级」）**：FDM 硬 Robin ~5e-4–1.7e-3 与 PINN
+   软损失 ~7e-4–2.2e-3 **同量级、仅差 ~2 倍**；且 Robin 残差是**区分真不动点（~1e-3）
+   vs 伪不动点（~0.1–0.4）的判据**，直接支撑 §11.13 的失败机制。
+4. **网格无关性（RQ 补充）**：FDM 单调收敛（~O(dz)–O(dz²)），PINN 停在 **~0.5 mV 表达力
+   地板**——论文须写「PINN 网格无关性受表达力上限约束」，不能写「天然网格无关」。
+5. **失败率（Stage 10 的量化）**：from_scratch 在强反型 **100% 失败**（16/16 伪不动点），
+   机制为「界面电位移不连续」，故**强反型必须 warm-start（fine_tune）**。
+
+产物：`summary_table.csv/png/pdf`、`grid_convergence.csv/png`、`failure_rate.csv` +
+`failure_rate_detail.csv`、`training_vs_inference_time.csv/png`；代码新增 `src/metrics.py`、
+`experiments/10_rigorous_comparison.py`、`tests/test_metrics.py`（详见 §11.8/§11.9）。
+下游：给 Stage 12（有监督代理）提供「多栅压总成本 + 强反型必须 warm-start」两条基线。
