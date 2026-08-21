@@ -228,7 +228,7 @@ def fig_sp_iters(df_sp):
     if len(ab):
         ax.scatter(ab['Vg'], [df_sp['iters'].max() or 200] * len(ab),
                    marker='x', color='black', s=60, label='from_scratch 中止')
-    ax.set_xlabel('Vg [V]')
+    ax.set_xlabel('$V_g$ [V]')
     ax.set_ylabel('外层迭代轮数')
     ax.set_title('全 SP 循环：fine_tune vs from_scratch 收敛轮数')
     ax.legend(fontsize=8)

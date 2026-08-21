@@ -131,7 +131,7 @@ def fig_comparison(device, case):
     ax.semilogy(z_nm, np.abs(case['err']), lw=1.2, color='tab:purple')
     ax.axvline(t_ox_nm, color='gray', ls=':', lw=0.8, label='界面')
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('|φ_PINN − φ_FDM| [V]')
+    ax.set_ylabel(r'|$\varphi_{\mathrm{PINN}}$ − $\varphi_{\mathrm{FDM}}$| [V]')
     ax.set_title(f'逐点误差（max = {case["max_err_mV"]:.2f} mV, '
                  f'rel-L2 = {case["rel_l2_pct"]:.3f} %）')
     ax.legend(fontsize=8)
@@ -177,7 +177,7 @@ def fig_ablation(device, case_hard, case_soft):
                 label=f"软约束（max = {case_soft['max_err_mV']:.2f} mV）")
     ax.axvline(t_ox_nm, color='gray', ls=':', lw=0.8, label='界面')
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('|φ_PINN − φ_FDM| [V]')
+    ax.set_ylabel(r'|$\varphi_{\mathrm{PINN}}$ − $\varphi_{\mathrm{FDM}}$| [V]')
     ax.set_title('边界处理消融：逐点误差')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, which='both')
@@ -190,8 +190,8 @@ def fig_ablation(device, case_hard, case_soft):
     for b, v in zip(bars, vals):
         ax.text(b.get_x() + b.get_width() / 2, v, f'{v:.3f} %',
                 ha='center', va='bottom', fontsize=9)
-    ax.set_ylabel('rel-L2 误差 [%]')
-    ax.set_title(f"硬 vs 软边界约束（Vg = {case_hard['Vg']} V，经典 n=0）")
+    ax.set_ylabel('rel-$L_2$ 误差 [%]')
+    ax.set_title(f"硬 vs 软边界约束（$V_g$ = {case_hard['Vg']} V，经典 n=0）")
     ax.grid(alpha=0.3, axis='y')
 
     fig.tight_layout()

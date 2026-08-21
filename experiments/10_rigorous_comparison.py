@@ -163,7 +163,7 @@ def fig_summary_metrics(df):
     ax = axes[0]
     ax.plot(df['Vg_V'], df['E1_err_meV'], 'o-', ms=5, color='tab:purple')
     ax.axhline(0.0, color='gray', ls=':', lw=0.8)
-    ax.set_xlabel('Vg [V]')
+    ax.set_xlabel('$V_g$ [V]')
     ax.set_ylabel('$E_1$ 差 [meV]（PINN − FDM）')
     ax.set_title('子带基态能级差（φ 误差的自洽放大）')
     ax.grid(alpha=0.3)
@@ -173,16 +173,16 @@ def fig_summary_metrics(df):
                 color='tab:blue', label='FDM（硬 Robin）')
     ax.semilogy(df['Vg_V'], df['robin_residual_hybrid'], 's--', ms=5,
                 color='tab:red', label='PINN（软 Robin）')
-    ax.set_xlabel('Vg [V]')
-    ax.set_ylabel('Robin 残差 |R_iface|/D_ref（无量纲）')
+    ax.set_xlabel('$V_g$ [V]')
+    ax.set_ylabel(r'Robin 残差 $|R_{\mathrm{iface}}|/D_{\mathrm{ref}}$（无量纲）')
     ax.set_title('Robin 残差（界面 D 连续，独立自洽校验）')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, which='both')
 
     ax = axes[2]
     ax.plot(df['Vg_V'], df['rel_l2_si_pct'], 'o-', ms=5, color='tab:green')
-    ax.set_xlabel('Vg [V]')
-    ax.set_ylabel('rel-L2 [%]（Si 区）')
+    ax.set_xlabel('$V_g$ [V]')
+    ax.set_ylabel('rel-$L_2$ [%]（Si 区）')
     ax.set_title('Si 区相对误差（统一口径）')
     ax.grid(alpha=0.3)
 
@@ -428,7 +428,7 @@ def fig_training_vs_inference(row):
         ax.text(b.get_x() + b.get_width() / 2, v, f'{v:.3g} s',
                 ha='center', va='bottom', fontsize=9)
     ax.set_ylabel('时间 [s]（对数）')
-    ax.set_title(f'训练 vs 推理效率（Vg={row["Vg"]} V，'
+    ax.set_title(f'训练 vs 推理效率（$V_g$={row["Vg"]} V，'
                  f'加速 {row["speedup"]:.1e} 倍）')
     ax.grid(alpha=0.3, axis='y')
     fig.tight_layout()

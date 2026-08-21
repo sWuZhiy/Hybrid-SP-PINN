@@ -95,9 +95,9 @@ def fig_profile(device, config, res):
     Ec_eV = res.Ec * units.J_TO_EV
     Ec_plot = np.where(device.is_si, Ec_eV,
                        Ec_eV + params.delta_Ec * units.J_TO_EV)
-    ax.plot(z_nm[sel], Ec_plot[sel], lw=1.5, color='black', label='Ec(z)')
+    ax.plot(z_nm[sel], Ec_plot[sel], lw=1.5, color='black', label='$E_c(z)$')
     ax.axhline(res.EF * units.J_TO_EV, color='tab:red', ls='--', lw=1.2,
-               label=f'EF = {res.EF * units.J_TO_EV * 1e3:.0f} meV')
+               label=f'$E_F$ = {res.EF * units.J_TO_EV * 1e3:.0f} meV')
     # 波函数 |ψ|² 包络：按能级偏移、按组着色（二重能谷深色 / 四重能谷浅色）
     scale = 0.03 / max(
         [np.max(psi[:, :3] ** 2) if psi.shape[1] else 1.0
@@ -110,15 +110,15 @@ def fig_profile(device, config, res):
             ax.axhline(E_eV, color=color, ls=':', lw=0.7)
             ax.plot(z_nm[sel], E_eV + scale * psi[sel, k] ** 2, lw=1.0,
                     color=color, alpha=0.85,
-                    label=('能谷 m_z=%.2fm0, 态 %d' % (
+                    label=('能谷 $m_z$=%.2f$m_0$, 态 %d' % (
                         params.m_z[i_lad] / constants.m0, k)) if k == 0 else None)
     ax.set_xlim(0, zmax)
     ax.set_ylim(-0.8, 0.7)
-    ax.annotate('SiO₂ 导带底（ΔEc=3.1 eV，图中超出范围）',
+    ax.annotate('SiO₂ 导带底（Δ$E_C$=3.1 eV，图中超出范围）',
                 xy=(1.0, 0.65), xytext=(3.5, 0.45), fontsize=7,
                 arrowprops=dict(arrowstyle='->', lw=0.8))
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('能量 [eV]（相对 E_i）')
+    ax.set_ylabel('能量 [eV]（相对 $E_i$）')
     ax.set_title('导带底与亚带能级 / 波函数（近界面放大）')
     ax.legend(fontsize=7, loc='upper right')
     ax.grid(alpha=0.3)
@@ -129,7 +129,7 @@ def fig_profile(device, config, res):
     ax.axvline(t_ox_nm, color='red', ls='--', lw=1.0, label='界面')
     ax.set_xlabel('z [nm]')
     ax.set_ylabel('φ [V]')
-    ax.set_title(f'静电势（Vg = {res.Vg} V）')
+    ax.set_title(f'静电势（$V_g$ = {res.Vg} V）')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
 
@@ -140,10 +140,10 @@ def fig_profile(device, config, res):
     ax.semilogy(z_nm, n_cm3, lw=1.4, color='tab:blue', label='n(z)（量子）')
     ax.semilogy(z_nm, p_cm3, lw=1.4, color='tab:orange', label='p(z)（经典）')
     ax.axhline(params.NA * units.M3_TO_CM3, color='gray', ls=':', lw=0.8,
-               label='NA')
+               label='$N_A$')
     ax.set_ylim(1e8, 1e21)
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('浓度 [cm^-3]')
+    ax.set_ylabel('浓度 [cm$^{-3}$]')
     ax.set_title('载流子浓度（对数坐标）')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, which='both')
@@ -153,7 +153,7 @@ def fig_profile(device, config, res):
     ax.plot(z_nm, res.rho, lw=1.2, color='tab:purple')
     ax.axvline(t_ox_nm, color='red', ls='--', lw=1.0, label='界面')
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('ρ [C/m^3]')
+    ax.set_ylabel('ρ [C/m$^3$]')
     ax.set_title('空间电荷密度')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)

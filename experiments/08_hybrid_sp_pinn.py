@@ -113,7 +113,7 @@ def fig_comparison(device, case):
     ax.axvline(t_ox_nm, color='gray', ls=':', lw=0.8, label='界面')
     ax.set_xlabel('z [nm]')
     ax.set_ylabel('φ [V]')
-    ax.set_title(f'静电势对照（Vg = {Vg} V）')
+    ax.set_title(f'静电势对照（$V_g$ = {Vg} V）')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
 
@@ -122,9 +122,9 @@ def fig_comparison(device, case):
     ax.semilogy(z_nm, np.abs(case['err']), lw=1.2, color='tab:purple')
     ax.axvline(t_ox_nm, color='gray', ls=':', lw=0.8)
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('|φ_Hybrid − φ_FDM| [V]')
+    ax.set_ylabel(r'|$\varphi_{\mathrm{Hybrid}}$ − $\varphi_{\mathrm{FDM}}$| [V]')
     ax.set_title(f'逐点误差（max = {case["max_err_mV"]:.3f} mV, '
-                 f'rel-L2 = {case["rel_l2_pct"]:.4f} %）')
+                 f'rel-$L_2$ = {case["rel_l2_pct"]:.4f} %）')
     ax.grid(alpha=0.3, which='both')
 
     # (c) 电子密度 n(z) 对照（对数）
@@ -135,7 +135,7 @@ def fig_comparison(device, case):
     ax.semilogy(z_nm, n_p, lw=1.2, ls='--', color='tab:red', label='Hybrid')
     ax.axvline(t_ox_nm, color='gray', ls=':', lw=0.8)
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('n(z) [cm^-3]')
+    ax.set_ylabel('n(z) [cm$^{-3}$]')
     ax.set_title('量子电子密度对照（对数）')
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, which='both')
@@ -144,10 +144,10 @@ def fig_comparison(device, case):
     ax = axes[1, 1]
     ax.semilogy(np.arange(1, len(case['hist_f']) + 1), case['hist_f'],
                 lw=1.2, color='tab:blue',
-                label=f'FDM（{case["iters_f"]} 轮, tol=1e-6）')
+                label=f'FDM（{case["iters_f"]} 轮, tol=$10^{-6}$）')
     ax.semilogy(np.arange(1, len(case['hist_p']) + 1), case['hist_p'],
                 lw=1.2, color='tab:red',
-                label=f'Hybrid（{case["iters_p"]} 轮, tol=5e-4）')
+                label=fr'Hybrid（{case["iters_p"]} 轮, tol=$5\times10^{-4}$）')
     ax.set_xlabel('外层迭代轮数')
     ax.set_ylabel('max|G(φ) − φ| [V]')
     ax.set_title('自洽收敛历史对照')

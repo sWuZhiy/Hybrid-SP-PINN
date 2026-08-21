@@ -47,8 +47,8 @@ def plot_device_profiles(device, save_path=None):
     ax.plot(z_nm, device.delta_ec_eV, lw=1.5, color='tab:green')
     mark_interface(ax, t_ox_nm)
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('ΔE_C [eV]')
-    ax.set_title('导带带阶 ΔE_C(z)')
+    ax.set_ylabel('Δ$E_C$ [eV]')
+    ax.set_title('导带带阶 Δ$E_C$(z)')
     ax.legend()
 
     # (3) z 向有效质量 m_z(z)（两组能谷）
@@ -57,11 +57,11 @@ def plot_device_profiles(device, save_path=None):
         mz_m0 = mz / m0
         m_si = device.params.m_z[i] / m0
         ax.plot(z_nm, mz_m0, lw=1.5,
-                label=f'能谷组 {i + 1}（Si 内 m_z = {m_si:.2f} m0）')
+                label=f'能谷组 {i + 1}（Si 内 $m_z$ = {m_si:.2f} $m_0$）')
     mark_interface(ax, t_ox_nm)
     ax.set_xlabel('z [nm]')
-    ax.set_ylabel('m_z [m0]')
-    ax.set_title('z 向有效质量 m_z(z)')
+    ax.set_ylabel('$m_z$ [$m_0$]')
+    ax.set_title('z 向有效质量 $m_z$(z)')
     ax.legend()
 
     # (4) 网格间距 dz(z)
